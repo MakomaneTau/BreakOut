@@ -1,6 +1,7 @@
 import * as THREE from '../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
 import { Vector3 } from '../../public/libs/three137/three.module.js';
+import { Prison } from './prison.js';
 
 class World {
     loadSkybox() {
@@ -23,6 +24,7 @@ class World {
         this.tmpPos = new Vector3();
         this.ready = false;
 
+        this.prison = new Prison(game);
         this.load();
     }
 
@@ -48,9 +50,9 @@ class World {
 
     update(time, delta){
         if (!this.ready) return;
-
         // Example animation
         //this.model.rotation.y += delta * 0.2;
+        if (this.prison) this.prison.update(time, delta);
     }
 
     get position(){
