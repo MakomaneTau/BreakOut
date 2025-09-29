@@ -1,0 +1,11 @@
+Model Information:
+* title:	Stairs | Building Stairs | Cemented
+* source:	https://sketchfab.com/3d-models/stairs-building-stairs-cemented-802491de6ff549d3aa9bb5bab08ae207
+* author:	itsveerindersingh (https://sketchfab.com/itsveerindersingh)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Stairs | Building Stairs | Cemented" (https://sketchfab.com/3d-models/stairs-building-stairs-cemented-802491de6ff549d3aa9bb5bab08ae207) by itsveerindersingh (https://sketchfab.com/itsveerindersingh) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

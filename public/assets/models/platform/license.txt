@@ -1,0 +1,11 @@
+Model Information:
+* title:	Concrete Floor
+* source:	https://sketchfab.com/3d-models/concrete-floor-b8f4521283d24523a4b91e9bc1498252
+* author:	cgwhiteford (https://sketchfab.com/cgwhiteford)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Concrete Floor" (https://sketchfab.com/3d-models/concrete-floor-b8f4521283d24523a4b91e9bc1498252) by cgwhiteford (https://sketchfab.com/cgwhiteford) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
