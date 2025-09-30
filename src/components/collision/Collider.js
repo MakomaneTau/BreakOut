@@ -1,5 +1,5 @@
 // src/components/collision/Collider.js
-import * as THREE from 'three';
+import * as THREE from '../../../public/libs/three137/three.module.js';
 
 export class Collider {
   constructor(mesh, type = 'box') {
@@ -24,13 +24,32 @@ export class Collider {
   }
 
   intersects(other) {
+    if (!other || !(other instanceof Collider)) {
+      throw new Error('intersects() requires a Collider instance');
+    }
+
     this.update();
     other.update();
 
-    if (this.box && other.box) return this.box.intersectsBox(other.box);
-    if (this.sphere && other.sphere) return this.sphere.intersectsSphere(other.sphere);
-    if (this.box && other.sphere) return other.sphere.intersectsBox(this.box);
-    if (this.sphere && other.box) return this.sphere.intersectsBox(other.box);
+    // Box vs Box
+    if (this.box && other.box) {
+      return this.box.intersectsBox(other.box);
+    }
+    
+    // Sphere vs Sphere
+    if (this.sphere && other.sphere) {
+      return this.sphere.intersectsSphere(other.sphere);
+    }
+    
+    // Box vs Sphere
+    if (this.box && other.sphere) {
+      return other.sphere.intersectsBox(this.box);
+    }
+    
+    // Sphere vs Box
+    if (this.sphere && other.box) {
+      return this.sphere.intersectsBox(other.box);
+    }
 
     return false;
   }
