@@ -4,6 +4,7 @@ import { Vector3 } from '../../public/libs/three137/three.module.js';
 import { Prison } from './prison.js';
 import { stairs } from './stairs.js';
 import { platform } from './course/platform.js';
+import { CollisionManager } from './collision/CollisionManager.js';
 
 class World {
     loadSkybox() {
@@ -22,6 +23,8 @@ class World {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
+        this.collisionManager = game.collisionManager || new CollisionManager();
+        this.wallColliders = [];
 
         this.tmpPos = new Vector3();
         this.ready = false;
@@ -46,10 +49,22 @@ class World {
                 this.ready = true;
                 // Load skybox for a big scene
                 this.loadSkybox();
+                
+                // Register prison walls as colliders after everything loads
+                this.registerPrisonWalls();
             },
             xhr => this.loadingBar.update('world', xhr.loaded, xhr.total),
             err => console.error(err)
         );
+    }
+
+    registerPrisonWalls() {
+        // Wait a bit for prison to load, then register walls
+        setTimeout(() => {
+            if (this.prison && this.prison.model) {
+                this.wallColliders = this.collisionManager.registerWallsFromModel(this.prison.model);
+            }
+        }, 1000);
     }
 
     update(time, delta){
@@ -64,6 +79,11 @@ class World {
     get position(){
         if (this.model) this.model.getWorldPosition(this.tmpPos);
         return this.tmpPos;
+    }
+
+    // Get all wall colliders for external collision checking
+    getWallColliders() {
+        return this.wallColliders;
     }
 }
 

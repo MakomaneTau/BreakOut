@@ -3,7 +3,8 @@ import { RGBELoader } from '../public/libs/three137/RGBELoader.js';
 import { LoadingBar } from '../public/libs/LoadingBar.js';
 import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
-//import { runCollisionTest } from "./components/collision/testCollision.js";
+import { CollisionManager } from './components/collision/CollisionManager.js';
+
 
 
 
@@ -32,7 +33,8 @@ class App {
         });
     }
     constructor() {
-       // runCollisionTest();
+      
+        this.collisionManager = new CollisionManager();
 
         const container = document.createElement('div');
         document.body.appendChild(container);
