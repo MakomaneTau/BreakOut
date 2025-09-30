@@ -3,8 +3,13 @@ import { RGBELoader } from '../public/libs/three137/RGBELoader.js';
 import { LoadingBar } from '../public/libs/LoadingBar.js';
 import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
+//import { runCollisionTest } from "./components/collision/testCollision.js";
+
+
+
 
 class App {
+    
     initWASDControls() {
         this.move = { forward: false, backward: false, left: false, right: false };
         this.velocity = new THREE.Vector3();
@@ -27,6 +32,8 @@ class App {
         });
     }
     constructor() {
+       // runCollisionTest();
+
         const container = document.createElement('div');
         document.body.appendChild(container);
 
