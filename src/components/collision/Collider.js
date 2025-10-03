@@ -1,4 +1,3 @@
-// src/components/collision/Collider.js
 import * as THREE from '../../../public/libs/three137/three.module.js';
 
 export class Collider {
@@ -35,17 +34,17 @@ export class Collider {
     if (this.box && other.box) {
       return this.box.intersectsBox(other.box);
     }
-    
+
     // Sphere vs Sphere
     if (this.sphere && other.sphere) {
       return this.sphere.intersectsSphere(other.sphere);
     }
-    
+
     // Box vs Sphere
     if (this.box && other.sphere) {
       return other.sphere.intersectsBox(this.box);
     }
-    
+
     // Sphere vs Box
     if (this.sphere && other.box) {
       return this.sphere.intersectsBox(other.box);

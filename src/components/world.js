@@ -56,6 +56,9 @@ class World {
                 
                 // Register prison walls as colliders after everything loads
                 this.registerPrisonWalls();
+                
+                // Register platform obstacles as colliders after everything loads
+                this.registerPlatformObstacles();
             },
             xhr => this.loadingBar.update('world', xhr.loaded, xhr.total),
             err => console.error(err)
@@ -69,6 +72,15 @@ class World {
                 this.wallColliders = this.collisionManager.registerWallsFromModel(this.prison.model);
             }
         }, 1000);
+    }
+
+    registerPlatformObstacles() {
+        // Wait a bit for platform obstacles to load, then register them
+        setTimeout(() => {
+            if (this.platform) {
+                this.platform.registerObstaclesWithCollision();
+            }
+        }, 1500); // Slightly longer delay to ensure all obstacles are loaded
     }
 
  

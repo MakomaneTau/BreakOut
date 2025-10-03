@@ -64,4 +64,24 @@ export class CollisionManager {
 
     return false;
   }
+
+  // Get all colliders of a specific type
+  getCollidersByType(type) {
+    return this.colliders.filter(collider => collider.type === type);
+  }
+
+  // Get all colliders
+  getAllColliders() {
+    return this.colliders;
+  }
+
+  // Get colliders count
+  getColliderCount() {
+    return this.colliders.length;
+  }
+
+  // Clear all colliders
+  clearAll() {
+    this.colliders = [];
+  }
 }

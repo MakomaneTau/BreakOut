@@ -9,8 +9,10 @@ class platform {
 		this.assetsPath = game.assetsPath;
 		this.loadingBar = game.loadingBar;
 		this.scene = game.scene;
+		this.collisionManager = game.collisionManager;
 		this.ready = false;
 		this.model = null;
+		this.obstacleColliders = [];
 		this.concreteBlocks = [
 			new concrete_blocks(game, { position: [-39, 2.3, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-36, 2.3, 3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
@@ -55,6 +57,46 @@ class platform {
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
 		);
+	}
+
+	// Register all obstacles with the collision system
+	registerObstaclesWithCollision() {
+		if (!this.collisionManager) return;
+
+		// Register concrete blocks
+		if (this.concreteBlocks) {
+			this.concreteBlocks.forEach(block => {
+				const collider = block.registerCollider(this.collisionManager);
+				if (collider) {
+					this.obstacleColliders.push(collider);
+					console.log(`Registered concrete block collider: ${block._name}`);
+				}
+			});
+		}
+
+		// Register spinning blades
+		if (this.spinningBlades) {
+			this.spinningBlades.forEach(blade => {
+				const collider = blade.registerCollider(this.collisionManager);
+				if (collider) {
+					this.obstacleColliders.push(collider);
+					console.log(`Registered spinning blade collider: ${blade._name}`);
+				}
+			});
+		}
+
+		// Register laser barriers
+		if (this.laserBarriers) {
+			this.laserBarriers.forEach(barrier => {
+				const collider = barrier.registerCollider(this.collisionManager);
+				if (collider) {
+					this.obstacleColliders.push(collider);
+					console.log(`Registered laser barrier collider: ${barrier._name}`);
+				}
+			});
+		}
+
+		console.log(`Total obstacle colliders registered: ${this.obstacleColliders.length}`);
 	}
 
 	update(time, delta) {
