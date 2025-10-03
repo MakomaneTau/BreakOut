@@ -7,6 +7,7 @@ class Eve {
     this.assetsPath = game.assetsPath;
     this.loadingBar = game.loadingBar;
     this.scene = game.scene;
+    this.collisionManager = game.collisionManager;
     this.ready = false;
     this.model = null;
 
@@ -38,6 +39,9 @@ class Eve {
     this.actionDurations = {};
     this.currentAction = null;
     this.currentActionName = null;
+
+    // collision detection
+    this.collider = null;
 
     this.load();
     this.setupKeyboardControls();
@@ -83,6 +87,9 @@ class Eve {
           const groundY = intersects[0].point.y + this.footOffset;
           this.model.position.y = groundY;
         }
+
+        // Create collider for collision detection
+        this.collider = this.collisionManager.add(this.model, 'box');
 
         this.mixer = new THREE.AnimationMixer(gltf.scene);
         this.animations = gltf.animations || [];
@@ -238,6 +245,25 @@ class Eve {
     return 'road'; 
   }
 
+  // Check collision at a specific position
+  checkCollisionAtPosition(testPosition) {
+    if (!this.collider || !this.collisionManager) return false;
+    
+    // Temporarily move collider to test position
+    const originalPos = this.collider.mesh.position.clone();
+    this.collider.mesh.position.copy(testPosition);
+    this.collider.update();
+    
+    // Check for collision
+    const collision = this.collisionManager.findCollisionFor(this.collider);
+    
+    // Restore original position
+    this.collider.mesh.position.copy(originalPos);
+    this.collider.update();
+    
+    return collision !== null;
+  }
+
   update(time, delta) {
     if (!this.ready) return;
     if (this.mixer) this.mixer.update(delta);
@@ -274,7 +300,11 @@ class Eve {
     let desiredAction = 'idle';
 
     if (this.isRolling) {
-      this.model.position.addScaledVector(this.rollVelocity, delta);
+      // Check collision before rolling
+      const testPos = this.model.position.clone().addScaledVector(this.rollVelocity, delta);
+      if (!this.checkCollisionAtPosition(testPos)) {
+        this.model.position.addScaledVector(this.rollVelocity, delta);
+      }
       this.rollTimer += delta;
       if (this.rollTimer >= this.rollDuration) {
         this.isRolling = false;
@@ -290,7 +320,13 @@ class Eve {
       } else {
         desiredAction = this.findActionNameMatch('run') || 'running';
         const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
-        this.model.position.addScaledVector(forward, this.runSpeed * delta);
+        const movementVector = forward.multiplyScalar(this.runSpeed * delta);
+        
+        // Check collision before moving
+        const testPos = this.model.position.clone().add(movementVector);
+        if (!this.checkCollisionAtPosition(testPos)) {
+          this.model.position.add(movementVector);
+        }
       }
     } else {
       desiredAction = this.findActionNameMatch('idle') || 'idle';

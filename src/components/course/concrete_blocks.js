@@ -9,6 +9,7 @@ class concrete_blocks {
 		this.assetsPath = game.assetsPath;
 		this.loadingBar = game.loadingBar;
 		this.scene = game.scene;
+		this.collisionManager = game.collisionManager;
 		this.ready = false;
 		this.model = null;
 
