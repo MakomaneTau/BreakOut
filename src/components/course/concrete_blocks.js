@@ -60,6 +60,7 @@ class concrete_blocks {
 		this.scene.add(clone);
 		this.model = clone;
 		this.ready = true;
+		console.log(`Concrete block ${this._name} instantiated and ready`);
 	}
 
 	// Register this obstacle as a collider

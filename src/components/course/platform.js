@@ -63,13 +63,26 @@ class platform {
 	registerObstaclesWithCollision() {
 		if (!this.collisionManager) return;
 
+		console.log('Starting obstacle registration...');
+		console.log(`Concrete blocks: ${this.concreteBlocks ? this.concreteBlocks.length : 0}`);
+		console.log(`Spinning blades: ${this.spinningBlades ? this.spinningBlades.length : 0}`);
+		console.log(`Laser barriers: ${this.laserBarriers ? this.laserBarriers.length : 0}`);
+
+		let registeredCount = 0;
+
 		// Register concrete blocks
 		if (this.concreteBlocks) {
-			this.concreteBlocks.forEach(block => {
-				const collider = block.registerCollider(this.collisionManager);
-				if (collider) {
-					this.obstacleColliders.push(collider);
-					console.log(`Registered concrete block collider: ${block._name}`);
+			this.concreteBlocks.forEach((block, index) => {
+				console.log(`Concrete block ${index}: ready=${block.ready}, hasModel=${!!block.model}, name=${block._name}`);
+				if (block.ready && block.model) {
+					const collider = block.registerCollider(this.collisionManager);
+					if (collider) {
+						this.obstacleColliders.push(collider);
+						registeredCount++;
+						console.log(`Registered concrete block collider: ${block._name}`);
+					}
+				} else {
+					console.log(`Concrete block ${block._name} not ready yet`);
 				}
 			});
 		}
@@ -77,10 +90,15 @@ class platform {
 		// Register spinning blades
 		if (this.spinningBlades) {
 			this.spinningBlades.forEach(blade => {
-				const collider = blade.registerCollider(this.collisionManager);
-				if (collider) {
-					this.obstacleColliders.push(collider);
-					console.log(`Registered spinning blade collider: ${blade._name}`);
+				if (blade.ready && blade.model) {
+					const collider = blade.registerCollider(this.collisionManager);
+					if (collider) {
+						this.obstacleColliders.push(collider);
+						registeredCount++;
+						console.log(`Registered spinning blade collider: ${blade._name}`);
+					}
+				} else {
+					console.log(`Spinning blade ${blade._name} not ready yet`);
 				}
 			});
 		}
@@ -88,15 +106,37 @@ class platform {
 		// Register laser barriers
 		if (this.laserBarriers) {
 			this.laserBarriers.forEach(barrier => {
-				const collider = barrier.registerCollider(this.collisionManager);
-				if (collider) {
-					this.obstacleColliders.push(collider);
-					console.log(`Registered laser barrier collider: ${barrier._name}`);
+				if (barrier.ready && barrier.model) {
+					const collider = barrier.registerCollider(this.collisionManager);
+					if (collider) {
+						this.obstacleColliders.push(collider);
+						registeredCount++;
+						console.log(`Registered laser barrier collider: ${barrier._name}`);
+					}
+				} else {
+					console.log(`Laser barrier ${barrier._name} not ready yet`);
 				}
 			});
 		}
 
-		console.log(`Total obstacle colliders registered: ${this.obstacleColliders.length}`);
+		console.log(`Total obstacle colliders registered: ${registeredCount}`);
+		
+		// If not all obstacles are ready, try again later
+		if (registeredCount < this.getExpectedObstacleCount()) {
+			console.log('Some obstacles not ready yet, retrying in 500ms...');
+			setTimeout(() => {
+				this.registerObstaclesWithCollision();
+			}, 500);
+		}
+	}
+
+	// Get expected number of obstacles
+	getExpectedObstacleCount() {
+		let expected = 0;
+		if (this.concreteBlocks) expected += this.concreteBlocks.length;
+		if (this.spinningBlades) expected += this.spinningBlades.length;
+		if (this.laserBarriers) expected += this.laserBarriers.length;
+		return expected;
 	}
 
 	update(time, delta) {
