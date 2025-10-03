@@ -69,7 +69,7 @@ class World {
         }, 1000);
     }
 
-    update(time, delta){
+ 
     update(time, delta) {
         if (!this.ready) return;
         // Example animation
