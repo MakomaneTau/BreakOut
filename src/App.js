@@ -145,6 +145,7 @@ class App {
                 // Frame the entire scene to ensure all independent models are included
                 this.devControls.frameObject(this.scene, 1.3);
                 this._framedOnce = true;
+            }
 
             // follow Eve: place camera behind and above character
             const eve = this.world.eve;
