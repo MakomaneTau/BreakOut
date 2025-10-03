@@ -5,6 +5,7 @@ import { Prison } from './prison.js';
 import { stairs } from './stairs.js';
 import { platform } from './course/platform.js';
 import { CollisionManager } from './collision/CollisionManager.js';
+import { concrete_blocks } from './course/concrete_blocks.js';
 
 class World {
     loadSkybox() {
@@ -19,7 +20,7 @@ class World {
                 'nz.jpg'
             ]);
     }
-    constructor(game){
+    constructor(game) {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
@@ -32,10 +33,11 @@ class World {
         this.prison = new Prison(game);
         this.stairs = new stairs(game);
         this.platform = new platform(game);
+
         this.load();
     }
 
-    load(){
+    load() {
         const loader = new GLTFLoader().setPath(`${this.assetsPath}models/road/`);
 
         loader.load(
@@ -68,15 +70,17 @@ class World {
     }
 
     update(time, delta){
+    update(time, delta) {
         if (!this.ready) return;
         // Example animation
         //this.model.rotation.y += delta * 0.2;
         if (this.prison) this.prison.update(time, delta);
         if (this.stairs) this.stairs.update(time, delta);
         if (this.platform) this.platform.update(time, delta);
+
     }
 
-    get position(){
+    get position() {
         if (this.model) this.model.getWorldPosition(this.tmpPos);
         return this.tmpPos;
     }

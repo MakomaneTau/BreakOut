@@ -60,14 +60,22 @@ class App {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputEncoding = THREE.sRGBEncoding;
+        // Enable local clipping so we can clip geometry (e.g., half blades)
+        this.renderer.localClippingEnabled = true;
         container.appendChild(this.renderer.domElement);
 
-    // Dev controls for moving around the scene
-    this.devControls = new DevControls(this.camera, this.renderer.domElement);
+        // Dev controls for moving around the scene
+        this.devControls = new DevControls(this.camera, this.renderer.domElement);
+        // Quick key to reframe the whole scene at any time
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyF') {
+                this.devControls.frameObject(this.scene, 1.3);
+            }
+        });
 
 
-    this.setEnvironment();
-    this.load();
+        this.setEnvironment();
+        this.load();
 
         window.addEventListener('resize', this.resize.bind(this));
     }
@@ -107,6 +115,12 @@ class App {
             this.world.update(t, dt);
             this.loading = false;
             this.loadingBar.visible = false;
+            // One-time framing of the scene once assets are ready
+            if (!this._framedOnce && !this.devControls?.restoredFromStorage) {
+                // Frame the entire scene to ensure all independent models are included
+                this.devControls.frameObject(this.scene, 1.3);
+                this._framedOnce = true;
+            }
         }
 
         // Update dev controls (WASD + Orbit)

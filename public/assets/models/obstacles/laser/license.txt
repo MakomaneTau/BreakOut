@@ -1,0 +1,11 @@
+Model Information:
+* title:	Futuristic Sci-fi Laser Barrier
+* source:	https://sketchfab.com/3d-models/futuristic-sci-fi-laser-barrier-cc22080d871f4dd5b1c16d4228e25a37
+* author:	Charles Smith (Blitz Mobile Apps) (https://sketchfab.com/BlitzMobileApp)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Futuristic Sci-fi Laser Barrier" (https://sketchfab.com/3d-models/futuristic-sci-fi-laser-barrier-cc22080d871f4dd5b1c16d4228e25a37) by Charles Smith (Blitz Mobile Apps) (https://sketchfab.com/BlitzMobileApp) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
