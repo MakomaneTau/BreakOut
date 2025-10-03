@@ -2,6 +2,7 @@ import * as THREE from '../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
 import { Vector3 } from '../../public/libs/three137/three.module.js';
 import { Prison } from './prison.js';
+import { Eve } from './Eve.js';
 import { stairs } from './stairs.js';
 import { platform } from './course/platform.js';
 import { CollisionManager } from './collision/CollisionManager.js';
@@ -31,6 +32,7 @@ class World {
         this.ready = false;
 
         this.prison = new Prison(game);
+        this.eve = new Eve(game);
         this.stairs = new stairs(game);
         this.platform = new platform(game);
 
@@ -78,6 +80,7 @@ class World {
         if (this.stairs) this.stairs.update(time, delta);
         if (this.platform) this.platform.update(time, delta);
 
+        if (this.eve) this.eve.update(time, delta);
     }
 
     get position() {

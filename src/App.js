@@ -74,6 +74,22 @@ class App {
         });
 
 
+        // Dev controls for moving around the scene - completely disable keyboard
+        this.devControls = new DevControls(this.camera, this.renderer.domElement);
+        this.devControls.enableKeys = false;
+        this.devControls.enablePan = false;  // Disable panning completely
+        this.devControls.keys = {
+            LEFT: null,
+            UP: null,
+            RIGHT: null,
+            BOTTOM: null
+        };
+        
+        // Disable keyboard events on the controls
+        this.devControls.keyboard = {
+            enabled: false
+        };
+
         this.setEnvironment();
         this.load();
 
@@ -129,11 +145,46 @@ class App {
                 // Frame the entire scene to ensure all independent models are included
                 this.devControls.frameObject(this.scene, 1.3);
                 this._framedOnce = true;
+
+            // follow Eve: place camera behind and above character
+            const eve = this.world.eve;
+            if (eve && eve.model) {
+                // camera position parameters
+                const distance = 6.0;         
+                const heightOffset = 7.0;     
+                const angleInRadians = Math.PI / 4; 
+                const lookAtHeight = 1.0;     
+
+                // get character's forward direction
+                const forward = new THREE.Vector3(0, 0, 1)
+                    .applyQuaternion(eve.model.quaternion)
+                    .setY(0)
+                    .normalize();
+
+                // calculate camera position
+                const targetPos = new THREE.Vector3().copy(eve.model.position);
+                
+                // Position camera behind character
+                targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
+                targetPos.y += heightOffset * Math.sin(angleInRadians);
+
+                // smooth camera movement
+                const smooth = 0.1;
+                this.camera.position.lerp(targetPos, smooth);
+
+                // Look in the direction the character is facing
+                const lookAt = new THREE.Vector3().copy(eve.model.position);
+                lookAt.addScaledVector(forward, 10);
+                lookAt.y += lookAtHeight;
+                this.camera.lookAt(lookAt);
             }
         }
 
-        // Update dev controls (WASD + Orbit)
-        this.devControls.update(dt);
+        // Only update orbital rotation, not keyboard controls
+        if (this.devControls.enabled) {
+            this.devControls.update(dt);
+        }
+        
         this.renderer.render(this.scene, this.camera);
     }
 }
