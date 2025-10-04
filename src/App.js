@@ -7,6 +7,7 @@ import { CollisionManager } from './components/collision/CollisionManager.js';
 import { HealthUI } from './components/ui/HealthUI.js';
 import { CameraUI } from './components/ui/CameraUI.js';
 import { TimerUI } from './components/ui/TimerUI.js';
+import { AmbientUI } from './components/ui/AmbientUI.js';
 
 
 
@@ -64,6 +65,18 @@ class App {
                 console.log('Time\'s up!');
                 // You can add game over logic here if needed
             }
+        });
+
+        // Initialize Ambient UI
+        this.ambientUI = new AmbientUI({
+            enableBorders: true,
+            enableCornerDecorations: true,
+            enableParticles: true,
+            enableAnimatedBackground: true,
+            particleCount: 30,
+            particleSpeed: 0.3,
+            borderOpacity: 0.15,
+            decorationOpacity: 0.4
         });
 
         // Camera setup
@@ -209,6 +222,11 @@ class App {
             // Update timer UI
             if (this.timerUI) {
                 this.timerUI.update(dt);
+            }
+            
+            // Update ambient UI
+            if (this.ambientUI) {
+                this.ambientUI.update(dt);
             }
 
             // Set target object for camera controls
