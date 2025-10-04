@@ -1,4 +1,4 @@
-import * as THREE from '../../public/libs/three137/three.module.js'; 
+import * as THREE from '../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
 import { DRACOLoader } from '../../public/libs/three137/DRACOLoader.js';
 
@@ -11,28 +11,24 @@ class Eve {
     this.ready = false;
     this.model = null;
 
-    // physics / ground detection state
     this.raycaster = new THREE.Raycaster();
     this.down = new THREE.Vector3(0, -1, 0);
 
-    // tuning parameters (adjust if needed)
-    this.footOffset = 0;           
+    this.footOffset = 0;
     this.velocityY = 0;
-    this.gravity = 30;             
-    this.jumpSpeed = 12;           
-    this.runSpeed = 5;             
-    this.rollDistance = 1.2;       
-    this.epsilon = 0.05;           
-    this.fadeDuration = 0.12;      
+    this.gravity = 30;
+    this.jumpSpeed = 12;
+    this.runSpeed = 5;
+    this.rollDistance = 1.2;
+    this.epsilon = 0.05;
+    this.fadeDuration = 0.12;
 
-    // input / state flags
     this.keyStates = {};
     this.isRolling = false;
     this.rollTimer = 0;
     this.rollDuration = 0.5;
     this.rollVelocity = new THREE.Vector3();
 
-    // animation bookkeeping
     this.mixer = null;
     this.animations = [];
     this.actions = {};
@@ -58,26 +54,16 @@ class Eve {
       'EveWorking.glb',
       gltf => {
         gltf.scene.scale.set(0.7, 0.7, 0.7);
-
-        // 🔹 Start at x/z, leave y = 0
         gltf.scene.position.set(3, 0, 0);
-
-        // 🔹 Rotate 90 degrees to her right (around Y axis)
         gltf.scene.rotation.y = -Math.PI / 2;
 
         this.scene.add(gltf.scene);
         this.model = gltf.scene;
 
-        // compute foot offset so we can align model feet to intersection point
         const box = new THREE.Box3().setFromObject(gltf.scene);
         this.footOffset = -box.min.y || 0;
 
-        // 🔹 One-time snap to ground after adding model
-        const rayOrigin = new THREE.Vector3(
-          this.model.position.x,
-          this.model.position.y + 10, // cast from above
-          this.model.position.z
-        );
+        const rayOrigin = new THREE.Vector3(this.model.position.x, this.model.position.y + 10, this.model.position.z);
         this.raycaster.set(rayOrigin, this.down);
 
         const intersects = this.raycaster.intersectObjects(this.scene.children, true)
@@ -96,40 +82,26 @@ class Eve {
         this.actions = {};
         this.actionDurations = {};
 
-        if (this.animations.length === 0) {
-          console.warn('Eve: no animations found (gltf.animations length = 0)');
-        } else {
-          this.animations.forEach((clip) => {
-            const action = this.mixer.clipAction(clip);
-            const name = clip.name;
-            const lower = name.toLowerCase();
+        this.animations.forEach((clip) => {
+          const action = this.mixer.clipAction(clip);
+          const name = clip.name;
+          const lower = name.toLowerCase();
 
-            if (lower.includes('jump')) {
-              action.setLoop(THREE.LoopOnce, 0);
-              action.clampWhenFinished = true;
-            } else if (lower.includes('roll')) {
-              action.setLoop(THREE.LoopOnce, 0);
-              action.clampWhenFinished = true;
-            } else {
-              action.setLoop(THREE.LoopRepeat);
-            }
+          if (lower.includes('jump') || lower.includes('roll')) {
+            action.setLoop(THREE.LoopOnce, 0);
+            action.clampWhenFinished = true;
+          } else {
+            action.setLoop(THREE.LoopRepeat);
+          }
 
-            this.actions[name] = action;
-            this.actionDurations[name] = clip.duration || 0.6;
-          });
-        }
+          this.actions[name] = action;
+          this.actionDurations[name] = clip.duration || 0.6;
+        });
 
         if (this.actions['idle']) {
           this.currentAction = this.actions['idle'];
           this.currentAction.play();
           this.currentActionName = 'idle';
-        } else {
-          const first = Object.keys(this.actions)[0];
-          if (first) {
-            this.currentAction = this.actions[first];
-            this.currentAction.play();
-            this.currentActionName = first;
-          }
         }
 
         this.mixer.addEventListener('finished', (e) => {
@@ -170,12 +142,12 @@ class Eve {
       if (this.keyStates[key]) return;
       this.keyStates[key] = true;
 
-      if (key === 'a') {
+      if (key === ' ') { // Space → Jump
         if (this.onGround) {
           this.velocityY = this.jumpSpeed;
           this.onGround = false;
         }
-      } else if (key === 'd') {
+      } else if (key === 'shift') { // Shift → Quick Roll
         if (this.onGround && !this.isRolling) {
           this.startRoll();
         }
@@ -242,7 +214,7 @@ class Eve {
   }
 
   detectGroundType() {
-    return 'road'; 
+    return 'road';
   }
 
   // Check collision at a specific position
@@ -318,6 +290,7 @@ class Eve {
         desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
         this.model.position.y += (this.runSpeed * 0.6) * delta;
       } else {
+        // Running forward with collision detection
         desiredAction = this.findActionNameMatch('run') || 'running';
         const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
         const movementVector = forward.multiplyScalar(this.runSpeed * delta);
@@ -326,6 +299,13 @@ class Eve {
         const testPos = this.model.position.clone().add(movementVector);
         if (!this.checkCollisionAtPosition(testPos)) {
           this.model.position.add(movementVector);
+        }
+
+        // Check for combined inputs with A or D for sliding
+        if (this.keyStates['a']) {
+          desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
+        } else if (this.keyStates['d']) {
+          desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
         }
       }
     } else {
