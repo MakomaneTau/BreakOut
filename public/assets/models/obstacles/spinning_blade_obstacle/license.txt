@@ -1,11 +1,11 @@
 Model Information:
-* title:	Spinning Blade (Obstacle)
-* source:	https://sketchfab.com/3d-models/spinning-blade-obstacle-bb2c6e546fbb416299e6b221a28378ff
-* author:	Paris Mutter (https://sketchfab.com/octrpus)
+* title:	Sawblade
+* source:	https://sketchfab.com/3d-models/sawblade-4d29279e700f4cd788378381b281217d
+* author:	azzajess (https://sketchfab.com/azzajess)
 
 Model License:
 * license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
 * requirements:	Author must be credited. Commercial use is allowed.
 
 If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
-This work is based on "Spinning Blade (Obstacle)" (https://sketchfab.com/3d-models/spinning-blade-obstacle-bb2c6e546fbb416299e6b221a28378ff) by Paris Mutter (https://sketchfab.com/octrpus) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+This work is based on "Sawblade" (https://sketchfab.com/3d-models/sawblade-4d29279e700f4cd788378381b281217d) by azzajess (https://sketchfab.com/azzajess) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

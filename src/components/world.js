@@ -5,6 +5,8 @@ import { Prison } from './prison.js';
 import { Eve } from './Eve.js';
 import { stairs } from './stairs.js';
 import { platform } from './course/platform.js';
+import { CollisionManager } from './collision/CollisionManager.js';
+import { concrete_blocks } from './course/concrete_blocks.js';
 
 class World {
     loadSkybox() {
@@ -19,10 +21,12 @@ class World {
                 'nz.jpg'
             ]);
     }
-    constructor(game){
+    constructor(game) {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
+        this.collisionManager = game.collisionManager || new CollisionManager();
+        this.wallColliders = [];
 
         this.tmpPos = new Vector3();
         this.ready = false;
@@ -31,10 +35,11 @@ class World {
         this.eve = new Eve(game);
         this.stairs = new stairs(game);
         this.platform = new platform(game);
+
         this.load();
     }
 
-    load(){
+    load() {
         const loader = new GLTFLoader().setPath(`${this.assetsPath}models/road/`);
 
         loader.load(
@@ -48,25 +53,56 @@ class World {
                 this.ready = true;
                 // Load skybox for a big scene
                 this.loadSkybox();
+                
+                // Register prison walls as colliders after everything loads
+                this.registerPrisonWalls();
+                
+                // Register platform obstacles as colliders after everything loads
+                this.registerPlatformObstacles();
             },
             xhr => this.loadingBar.update('world', xhr.loaded, xhr.total),
             err => console.error(err)
         );
     }
 
-    update(time, delta){
+    registerPrisonWalls() {
+        // Wait a bit for prison to load, then register walls
+        setTimeout(() => {
+            if (this.prison && this.prison.model) {
+                this.wallColliders = this.collisionManager.registerWallsFromModel(this.prison.model);
+            }
+        }, 1000);
+    }
+
+    registerPlatformObstacles() {
+        // Wait a bit for platform obstacles to load, then register them
+        setTimeout(() => {
+            if (this.platform) {
+                this.platform.registerObstaclesWithCollision();
+            }
+        }, 1500); // Slightly longer delay to ensure all obstacles are loaded
+    }
+
+ 
+    update(time, delta) {
         if (!this.ready) return;
         // Example animation
         //this.model.rotation.y += delta * 0.2;
         if (this.prison) this.prison.update(time, delta);
         if (this.stairs) this.stairs.update(time, delta);
         if (this.platform) this.platform.update(time, delta);
+
         if (this.eve) this.eve.update(time, delta);
     }
 
-    get position(){
+    get position() {
         if (this.model) this.model.getWorldPosition(this.tmpPos);
         return this.tmpPos;
+    }
+
+    // Get all wall colliders for external collision checking
+    getWallColliders() {
+        return this.wallColliders;
     }
 }
 

@@ -3,9 +3,39 @@ import { RGBELoader } from '../public/libs/three137/RGBELoader.js';
 import { LoadingBar } from '../public/libs/LoadingBar.js';
 import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
+import { CollisionManager } from './components/collision/CollisionManager.js';
+
+
+
+
 
 class App {
+    
+    initWASDControls() {
+        this.move = { forward: false, backward: false, left: false, right: false };
+        this.velocity = new THREE.Vector3();
+        this.direction = new THREE.Vector3();
+        window.addEventListener('keydown', (e) => {
+            switch (e.code) {
+                case 'KeyW': this.move.forward = true; break;
+                case 'KeyS': this.move.backward = true; break;
+                case 'KeyA': this.move.left = true; break;
+                case 'KeyD': this.move.right = true; break;
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            switch (e.code) {
+                case 'KeyW': this.move.forward = false; break;
+                case 'KeyS': this.move.backward = false; break;
+                case 'KeyA': this.move.left = false; break;
+                case 'KeyD': this.move.right = false; break;
+            }
+        });
+    }
     constructor() {
+      
+        this.collisionManager = new CollisionManager();
+
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -30,7 +60,19 @@ class App {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputEncoding = THREE.sRGBEncoding;
+        // Enable local clipping so we can clip geometry (e.g., half blades)
+        this.renderer.localClippingEnabled = true;
         container.appendChild(this.renderer.domElement);
+
+        // Dev controls for moving around the scene
+        this.devControls = new DevControls(this.camera, this.renderer.domElement);
+        // Quick key to reframe the whole scene at any time
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyF') {
+                this.devControls.frameObject(this.scene, 1.3);
+            }
+        });
+
 
         // Dev controls for moving around the scene - completely disable keyboard
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
@@ -77,8 +119,17 @@ class App {
         this.loadingBar.visible = true;
 
         this.world = new World(this);
+        const playerCube = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 2, 1),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+    );
+    playerCube.position.set(0, 1, 0); // center it on the ground
+    this.scene.add(playerCube);
+    this.devControls.targetObject = playerCube;
 
         this.renderer.setAnimationLoop(this.render.bind(this));
+
+        
     }
 
     render() {
@@ -89,6 +140,12 @@ class App {
             this.world.update(t, dt);
             this.loading = false;
             this.loadingBar.visible = false;
+            // One-time framing of the scene once assets are ready
+            if (!this._framedOnce && !this.devControls?.restoredFromStorage) {
+                // Frame the entire scene to ensure all independent models are included
+                this.devControls.frameObject(this.scene, 1.3);
+                this._framedOnce = true;
+            }
 
             // follow Eve: place camera behind and above character
             const eve = this.world.eve;
