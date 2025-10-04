@@ -127,10 +127,8 @@ class App {
         new THREE.BoxGeometry(1, 2, 1),
         new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
     );
-    playerCube.position.set(0, 1, 0); // center it on the ground
-    this.scene.add(playerCube);
-    this.devControls.targetObject = playerCube;
-
+  
+ 
         this.renderer.setAnimationLoop(this.render.bind(this));
 
         // Setup health UI updates
