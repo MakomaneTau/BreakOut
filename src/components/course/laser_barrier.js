@@ -53,8 +53,8 @@ class laser_barrier {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		// Optional: animate or update platform model here
-		this.model.position.x = this._position.x + Math.sin(Date.now() * 0.005) * 1; // Sway left and right from original x
+		// Move up and down with a much larger range to touch the platform
+		this.model.position.y = this._position.y + Math.sin(Date.now() * 0.005) * 2;
 	}
 }
 

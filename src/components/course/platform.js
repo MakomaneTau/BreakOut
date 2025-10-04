@@ -82,6 +82,7 @@ import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
 import { concrete_blocks } from './concrete_blocks.js';
 import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
+import { createPlatformMaterial } from '../../shaders/platformShader.js';
 
 class platform {
 	constructor(game) {
@@ -92,6 +93,8 @@ class platform {
 		this.ready = false;
 		this.model = null;
 		this.obstacleColliders = [];
+		this.shaderMaterials = [];
+
 		this.concreteBlocks = [
 			new concrete_blocks(game, { position: [-39, 2.3, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-36, 2.3, 3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
@@ -145,15 +148,42 @@ class platform {
 				gltf.scene.scale.set(0.05, 1, 0.2);
 				gltf.scene.position.set(-21.2, 1.8, 0);
 
+				// Apply platform shader
+				this._applyPlatformShader(gltf.scene);
+
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
 				this.ready = true;
+				console.log('Platform loaded with shader and ready');
 			},
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
 		);
 	}
 
+	_applyPlatformShader(object) {
+		object.traverse((child) => {
+			if (child.isMesh) {
+				// Create platform shader material
+				const shaderMaterial = createPlatformMaterial({
+					color: new THREE.Color(0.25, 0.25, 0.3), // Dark industrial color
+					roughness: 0.9,
+					metallic: 0.05,
+					noiseScale: 0.08,
+					wearIntensity: 0.5,
+					grimeIntensity: 0.4,
+					patternScale: 0.3,
+					emissive: new THREE.Color(0.02, 0.02, 0.05),
+					emissiveIntensity: 0.1
+				});
+
+				this.shaderMaterials.push(shaderMaterial);
+				child.material = shaderMaterial;
+			}
+		});
+	}
+
+	// Register all obstacles with the collision system using the collision manager
 	registerObstaclesWithCollision() {
 		if (!this.collisionManager) return;
 		this.obstacleColliders = this.collisionManager.registerPlatformObstacles(this);
@@ -161,6 +191,15 @@ class platform {
 
 	update(time, delta) {
 		if (!this.ready) return;
+		
+		// Update platform shader materials
+		this.shaderMaterials.forEach(material => {
+			if (material.uniforms) {
+				material.uniforms.uTime.value = time * 0.001;
+			}
+		});
+		
+		// Update obstacles
 		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.update(time, delta));
 		if (this.spinningBlades) this.spinningBlades.forEach(sb => sb.update(time, delta));
 		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
@@ -170,6 +209,24 @@ class platform {
 			const opacity = 0.4 + 0.2 * Math.sin(time * 5);
 			this.finishLine.material.opacity = opacity;
 		}
+	}
+
+	dispose() {
+		if (this.model && this.model.parent) this.model.parent.remove(this.model);
+		
+		// Dispose shader materials
+		this.shaderMaterials.forEach(material => {
+			if (material) material.dispose();
+		});
+		this.shaderMaterials = [];
+		
+		// Dispose obstacles
+		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.dispose());
+		if (this.spinningBlades) this.spinningBlades.forEach(sb => sb.dispose());
+		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.dispose());
+		
+		this.model = null;
+		this.ready = false;
 	}
 }
 
