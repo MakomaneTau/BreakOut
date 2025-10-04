@@ -305,6 +305,7 @@ class Eve {
         if (this.keyStates['a']) {
           desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
         } else if (this.keyStates['d']) {
+          
           desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
         }
       }
