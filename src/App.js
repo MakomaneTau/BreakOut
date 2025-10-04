@@ -4,6 +4,7 @@ import { LoadingBar } from '../public/libs/LoadingBar.js';
 import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
 import { CollisionManager } from './components/collision/CollisionManager.js';
+import { HealthUI } from './components/ui/HealthUI.js';
 
 
 
@@ -43,6 +44,9 @@ class App {
         this.loadingBar.visible = false;
         this.clock = new THREE.Clock();
         this.assetsPath = '/assets/';
+
+        // Initialize Health UI
+        this.healthUI = new HealthUI();
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
@@ -129,7 +133,49 @@ class App {
 
         this.renderer.setAnimationLoop(this.render.bind(this));
 
-        
+        // Setup health UI updates
+        this.setupHealthUI();
+    }
+
+    setupHealthUI() {
+        // Wait for world to be ready
+        const checkWorldReady = setInterval(() => {
+            if (this.world?.ready && this.world.eve?.health) {
+                clearInterval(checkWorldReady);
+                
+                const playerHealth = this.world.eve.health;
+                
+                // Initial UI update
+                this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth);
+                this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
+                
+                // Hook into health events
+                const originalOnDamage = playerHealth.onDamage;
+                playerHealth.onDamage = (damage, health, maxHealth, damageType) => {
+                    if (originalOnDamage) originalOnDamage(damage, health, maxHealth, damageType);
+                    this.healthUI.updateHealth(health, maxHealth);
+                    this.healthUI.flashDamage();
+                };
+                
+                const originalOnHeal = playerHealth.onHeal;
+                playerHealth.onHeal = (amount, health, maxHealth) => {
+                    if (originalOnHeal) originalOnHeal(amount, health, maxHealth);
+                    this.healthUI.updateHealth(health, maxHealth);
+                };
+                
+                const originalOnLifeLost = playerHealth.onLifeLost;
+                playerHealth.onLifeLost = (lives, maxLives) => {
+                    if (originalOnLifeLost) originalOnLifeLost(lives, maxLives);
+                    this.healthUI.updateLives(lives, maxLives);
+                };
+                
+                const originalOnGameOver = playerHealth.onGameOver;
+                playerHealth.onGameOver = (stats) => {
+                    if (originalOnGameOver) originalOnGameOver(stats);
+                    this.healthUI.showGameOver(stats);
+                };
+            }
+        }, 100);
     }
 
     render() {
@@ -138,13 +184,10 @@ class App {
 
         if (this.world?.ready) {
             this.world.update(t, dt);
-            this.loading = false;
-            this.loadingBar.visible = false;
-            // One-time framing of the scene once assets are ready
-            if (!this._framedOnce && !this.devControls?.restoredFromStorage) {
-                // Frame the entire scene to ensure all independent models are included
-                this.devControls.frameObject(this.scene, 1.3);
-                this._framedOnce = true;
+            
+            // Update health UI
+            if (this.healthUI) {
+                this.healthUI.update(dt);
             }
 
             // follow Eve: place camera behind and above character

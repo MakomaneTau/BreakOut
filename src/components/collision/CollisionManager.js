@@ -1,5 +1,6 @@
 import { Collider } from './Collider.js';
 import * as THREE from '../../../public/libs/three137/three.module.js';
+import { HealthConfig, DamageType } from '../../config/healthConfig.js';
 
 export class CollisionManager {
   constructor() {
@@ -163,5 +164,33 @@ export class CollisionManager {
   // Clear all colliders
   clearAll() {
     this.colliders = [];
+  }
+
+  /**
+   * Check collision and apply damage if player hits an obstacle
+   */
+  checkPlayerCollisions(playerCollider, player) {
+    if (!playerCollider || !player) return null;
+
+    for (const collider of this.colliders) {
+      if (collider === playerCollider) continue;
+
+      if (playerCollider.intersects(collider)) {
+        // Apply damage based on obstacle type
+        const obstacle = collider.mesh.userData;
+        
+        if (obstacle?.type === 'concrete_block') {
+          player.takeDamage(HealthConfig.OBSTACLE_DAMAGE, DamageType.OBSTACLE);
+        } else if (obstacle?.type === 'spinning_blade') {
+          player.takeDamage(HealthConfig.TRAP_DAMAGE, DamageType.TRAP);
+        } else if (obstacle?.type === 'laser') {
+          player.takeDamage(HealthConfig.TRAP_DAMAGE, DamageType.TRAP);
+        }
+        
+        return collider;
+      }
+    }
+
+    return null;
   }
 }
