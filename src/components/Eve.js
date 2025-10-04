@@ -1,6 +1,8 @@
 import * as THREE from '../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
 import { DRACOLoader } from '../../public/libs/three137/DRACOLoader.js';
+import { PlayerHealth } from './player/PlayerHealth.js';
+import { HealthConfig, DamageType } from '../config/healthConfig.js';
 
 class Eve {
   constructor(game) {
@@ -38,6 +40,20 @@ class Eve {
 
     // collision detection
     this.collider = null;
+
+    // Initialize health system
+    this.health = new PlayerHealth({
+      maxHealth: HealthConfig.MAX_HEALTH,
+      maxLives: HealthConfig.MAX_LIVES,
+      permadeath: HealthConfig.PERMADEATH_MODE,
+      initialPosition: { x: 0, y: 1, z: 0 },
+      onDamage: this.onPlayerDamage.bind(this),
+      onHeal: this.onPlayerHeal.bind(this),
+      onDeath: this.onPlayerDeath.bind(this),
+      onRespawn: this.onPlayerRespawn.bind(this),
+      onGameOver: this.onPlayerGameOver.bind(this),
+      onLifeLost: this.onPlayerLifeLost.bind(this),
+    });
 
     this.load();
     this.setupKeyboardControls();
@@ -233,14 +249,146 @@ class Eve {
 
     // Restore original position
     this.collider.mesh.position.copy(originalPos);
-    if (typeof this.collider.update === 'function') this.collider.update();
-
+    this.collider.update();
+    
+    // If collision detected, apply damage
+    if (collision) {
+      this.handleCollisionDamage(collision);
+    }
+    
     return collision !== null;
+  }
+
+  /**
+   * Health system callbacks
+   */
+  onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
+    console.log(`Took ${damage} damage from ${damageType}. Health: ${currentHealth}/${maxHealth}`);
+    // Flash red or shake camera here
+  }
+
+  onPlayerHeal(amount, currentHealth, maxHealth) {
+    console.log(`Healed ${amount}. Health: ${currentHealth}/${maxHealth}`);
+  }
+
+  onPlayerDeath(remainingLives) {
+    console.log(`Player died! Lives remaining: ${remainingLives}`);
+    // Play death animation here
+  }
+
+  onPlayerRespawn(checkpoint, health, lives) {
+    console.log(`Respawning at checkpoint with ${health} HP and ${lives} lives`);
+    // Teleport player to checkpoint
+    if (this.model) {
+      this.model.position.set(checkpoint.x, checkpoint.y, checkpoint.z);
+    }
+  }
+
+  onPlayerGameOver(stats) {
+    console.log('Game Over!', stats);
+    // Disable player controls here
+    this.ready = false;
+  }
+
+  onPlayerLifeLost(currentLives, maxLives) {
+    console.log(`Lost a life! ${currentLives}/${maxLives} remaining`);
+  }
+
+  /**
+   * Public method to take damage
+   * This can be called from collision detection systems
+   */
+  takeDamage(amount, damageType = DamageType.ENVIRONMENTAL) {
+    return this.health.takeDamage(amount, damageType);
+  }
+
+  /**
+   * Public method to heal
+   */
+  heal(amount) {
+    return this.health.heal(amount);
+  }
+
+  /**
+   * Set a checkpoint
+   */
+  setCheckpoint(position) {
+    this.health.setCheckpoint(position || this.model.position);
+  }
+
+  /**
+   * Handle damage when collision is detected
+   */
+  handleCollisionDamage(collision) {
+    if (!this.health || !this.health.isAlive) return;
+    
+    // Get obstacle type from mesh userData or mesh name
+    const mesh = collision.mesh;
+    const obstacleType = mesh.userData?.type || this.getObstacleTypeFromName(mesh.name);
+    
+    // Apply damage based on obstacle type
+    let damage = HealthConfig.OBSTACLE_DAMAGE; // default damage
+    let damageType = DamageType.OBSTACLE; // default type
+    
+    switch (obstacleType) {
+      case 'concrete_block':
+        damage = HealthConfig.OBSTACLE_DAMAGE;
+        damageType = DamageType.OBSTACLE;
+        break;
+      case 'spinning_blade':
+        damage = HealthConfig.TRAP_DAMAGE;
+        damageType = DamageType.TRAP;
+        break;
+      case 'laser':
+      case 'laser_barrier':
+        damage = HealthConfig.TRAP_DAMAGE;
+        damageType = DamageType.TRAP;
+        break;
+      default:
+        // Try to determine type from mesh name
+        const name = mesh.name.toLowerCase();
+        if (name.includes('blade') || name.includes('spinning')) {
+          damage = HealthConfig.TRAP_DAMAGE;
+          damageType = DamageType.TRAP;
+        } else if (name.includes('laser')) {
+          damage = HealthConfig.TRAP_DAMAGE;
+          damageType = DamageType.TRAP;
+        }
+        break;
+    }
+    
+    // Apply damage
+    this.takeDamage(damage, damageType);
+  }
+
+  /**
+   * Determine obstacle type from mesh name
+   */
+  getObstacleTypeFromName(name) {
+    if (!name) return 'unknown';
+    
+    const lowerName = name.toLowerCase();
+    
+    if (lowerName.includes('concrete') || lowerName.includes('block')) {
+      return 'concrete_block';
+    } else if (lowerName.includes('blade') || lowerName.includes('spinning')) {
+      return 'spinning_blade';
+    } else if (lowerName.includes('laser')) {
+      return 'laser';
+    }
+    
+    return 'unknown';
   }
 
   update(time, delta) {
     if (!this.ready) return;
     if (this.mixer) this.mixer.update(delta);
+
+    // Update health system first
+    this.health.update(delta);
+
+    // Check for damage collisions (separate from movement collision)
+    this.checkDamageCollisions();
 
     const rayOrigin = new THREE.Vector3(this.model.position.x, this.model.position.y + 0.5, this.model.position.z);
     this.raycaster.set(rayOrigin, this.down);
@@ -292,7 +440,7 @@ class Eve {
         desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
         this.model.position.y += (this.runSpeed * 0.6) * delta;
       } else {
-        // Running forward
+        // Running forward with collision detection
         desiredAction = this.findActionNameMatch('run') || 'running';
         const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
         const movementVector = forward.clone().multiplyScalar(this.runSpeed * delta);
@@ -303,17 +451,35 @@ class Eve {
           this.model.position.add(movementVector);
         }
 
-        // Check for combined inputs with A or D (requires W + A / W + D)
+        // Check for combined inputs with A or D for sliding
         if (this.keyStates['a']) {
           desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
         } else if (this.keyStates['d']) {
+          
           desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
         }
-        // NOTE: do not override with idle here — if neither a nor d, we keep 'run'
       }
     }
 
     this.playAction(desiredAction, this.fadeDuration);
+  }
+
+  /**
+   * Check for collisions that should cause damage
+   * This runs continuously and is separate from movement collision detection
+   */
+  checkDamageCollisions() {
+    if (!this.collider || !this.collisionManager || !this.health || !this.health.isAlive) return;
+    
+    // Update collider position to current player position
+    this.collider.update();
+    
+    // Check for collisions with obstacles
+    const collision = this.collisionManager.findCollisionFor(this.collider);
+    
+    if (collision) {
+      this.handleCollisionDamage(collision);
+    }
   }
 }
 
