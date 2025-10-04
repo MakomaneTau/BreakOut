@@ -42,6 +42,86 @@ export class CollisionManager {
     return wallColliders;
   }
 
+  // Register all obstacles from a platform
+  registerPlatformObstacles(platform) {
+    console.log('Starting obstacle registration...');
+    console.log(`Concrete blocks: ${platform.concreteBlocks ? platform.concreteBlocks.length : 0}`);
+    console.log(`Spinning blades: ${platform.spinningBlades ? platform.spinningBlades.length : 0}`);
+    console.log(`Laser barriers: ${platform.laserBarriers ? platform.laserBarriers.length : 0}`);
+
+    const registeredColliders = [];
+    let registeredCount = 0;
+
+    // Register concrete blocks
+    if (platform.concreteBlocks) {
+      platform.concreteBlocks.forEach((block, index) => {
+        console.log(`Concrete block ${index}: ready=${block.ready}, hasModel=${!!block.model}, name=${block._name}`);
+        if (block.ready && block.model) {
+          const collider = this.add(block.model, 'box');
+          if (collider) {
+            registeredColliders.push(collider);
+            registeredCount++;
+            console.log(`Registered concrete block collider: ${block._name}`);
+          }
+        } else {
+          console.log(`Concrete block ${block._name} not ready yet`);
+        }
+      });
+    }
+
+    // Register spinning blades
+    if (platform.spinningBlades) {
+      platform.spinningBlades.forEach(blade => {
+        if (blade.ready && blade.model) {
+          const collider = this.add(blade.model, 'box');
+          if (collider) {
+            registeredColliders.push(collider);
+            registeredCount++;
+            console.log(`Registered spinning blade collider: ${blade._name}`);
+          }
+        } else {
+          console.log(`Spinning blade ${blade._name} not ready yet`);
+        }
+      });
+    }
+
+    // Register laser barriers
+    if (platform.laserBarriers) {
+      platform.laserBarriers.forEach(barrier => {
+        if (barrier.ready && barrier.model) {
+          const collider = this.add(barrier.model, 'box');
+          if (collider) {
+            registeredColliders.push(collider);
+            registeredCount++;
+            console.log(`Registered laser barrier collider: ${barrier._name}`);
+          }
+        } else {
+          console.log(`Laser barrier ${barrier._name} not ready yet`);
+        }
+      });
+    }
+
+    // If not all obstacles are ready, try again later
+    const expectedCount = this.getExpectedObstacleCount(platform);
+    if (registeredCount < expectedCount) {
+      console.log('Some obstacles not ready yet, retrying in 500ms...');
+      setTimeout(() => {
+        this.registerPlatformObstacles(platform);
+      }, 500);
+    }
+
+    return registeredColliders;
+  }
+
+  // Get expected number of obstacles for a platform
+  getExpectedObstacleCount(platform) {
+    let expected = 0;
+    if (platform.concreteBlocks) expected += platform.concreteBlocks.length;
+    if (platform.spinningBlades) expected += platform.spinningBlades.length;
+    if (platform.laserBarriers) expected += platform.laserBarriers.length;
+    return expected;
+  }
+
   // Check if a mesh should be treated as a wall
   isWallMesh(mesh) {
     // Check if mesh name suggests it's a wall
