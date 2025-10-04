@@ -6,6 +6,7 @@ import { DevControls } from './controls/devControls.js';
 import { CollisionManager } from './components/collision/CollisionManager.js';
 import { HealthUI } from './components/ui/HealthUI.js';
 import { CameraUI } from './components/ui/CameraUI.js';
+import { TimerUI } from './components/ui/TimerUI.js';
 
 
 
@@ -53,6 +54,15 @@ class App {
         this.cameraUI = new CameraUI({
             onCameraToggle: (isFirstPerson) => {
                 this.devControls.setCameraMode(isFirstPerson);
+            }
+        });
+        
+        // Initialize Timer UI
+        this.timerUI = new TimerUI({
+            initialTime: 210, // 3:30 in seconds
+            onTimeUp: () => {
+                console.log('Time\'s up!');
+                // You can add game over logic here if needed
             }
         });
 
@@ -194,6 +204,11 @@ class App {
             // Update health UI
             if (this.healthUI) {
                 this.healthUI.update(dt);
+            }
+            
+            // Update timer UI
+            if (this.timerUI) {
+                this.timerUI.update(dt);
             }
 
             // Set target object for camera controls
