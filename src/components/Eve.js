@@ -90,8 +90,10 @@ class Eve {
           this.model.position.y = groundY;
         }
 
-        // Create collider for collision detection
-        this.collider = this.collisionManager.add(this.model, 'box');
+        // Create collider for collision detection (assumes collisionManager.add returns collider with .mesh & .update())
+        if (this.collisionManager) {
+          this.collider = this.collisionManager.add(this.model, 'box');
+        }
 
         this.mixer = new THREE.AnimationMixer(gltf.scene);
         this.animations = gltf.animations || [];
@@ -155,7 +157,7 @@ class Eve {
       if (!this.ready) return;
       const key = event.key.toLowerCase();
 
-      if (this.keyStates[key]) return;
+      // allow repeat; pressing another key should still register
       this.keyStates[key] = true;
 
       if (key === ' ') { // Space → Jump
@@ -237,15 +239,15 @@ class Eve {
   // Check collision at a specific position
   checkCollisionAtPosition(testPosition) {
     if (!this.collider || !this.collisionManager) return false;
-    
+
     // Temporarily move collider to test position
     const originalPos = this.collider.mesh.position.clone();
     this.collider.mesh.position.copy(testPosition);
-    this.collider.update();
-    
+    if (typeof this.collider.update === 'function') this.collider.update();
+
     // Check for collision
     const collision = this.collisionManager.findCollisionFor(this.collider);
-    
+
     // Restore original position
     this.collider.mesh.position.copy(originalPos);
     this.collider.update();
