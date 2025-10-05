@@ -168,6 +168,7 @@ class Eve {
           this.startRoll();
         }
       }
+      // WASD keys are handled in the update loop - no special handling needed here
     });
 
     document.addEventListener('keyup', (event) => {
@@ -418,6 +419,7 @@ class Eve {
     }
 
     let desiredAction = 'idle';
+    let isMoving = false;
 
     if (this.isRolling) {
       // Check collision before rolling
@@ -432,16 +434,38 @@ class Eve {
       desiredAction = this.findActionNameMatch('roll') || 'QuickRoll';
     } else if (!this.onGround) {
       desiredAction = this.findActionNameMatch('jump') || 'Jump';
-    } else if (this.keyStates['w']) {
-      const groundType = this.detectGroundType();
-      if (groundType === 'stairs') {
-        desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
-        this.model.position.y += (this.runSpeed * 0.6) * delta;
-      } else {
-        // Running forward with collision detection
-        desiredAction = this.findActionNameMatch('run') || 'running';
+    } else {
+      // Handle WASD movement
+      const movementVector = new THREE.Vector3();
+      
+      // Forward/Backward (W/S)
+      if (this.keyStates['w']) {
         const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
-        const movementVector = forward.multiplyScalar(this.runSpeed * delta);
+        movementVector.add(forward);
+        isMoving = true;
+      }
+      if (this.keyStates['s']) {
+        const backward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.model.quaternion).setY(0).normalize();
+        movementVector.add(backward);
+        isMoving = true;
+      }
+      
+      // Left/Right (A/D)
+      if (this.keyStates['d']) {
+        const left = new THREE.Vector3(-1, 0, 0).applyQuaternion(this.model.quaternion).setY(0).normalize();
+        movementVector.add(left);
+        isMoving = true;
+      }
+      if (this.keyStates['a']) {
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.model.quaternion).setY(0).normalize();
+        movementVector.add(right);
+        isMoving = true;
+      }
+
+      if (isMoving) {
+        // Normalize movement vector to prevent faster diagonal movement
+        movementVector.normalize();
+        movementVector.multiplyScalar(this.runSpeed * delta);
         
         // Check collision before moving
         const testPos = this.model.position.clone().add(movementVector);
@@ -449,16 +473,34 @@ class Eve {
           this.model.position.add(movementVector);
         }
 
-        // Check for combined inputs with A or D for sliding
-        if (this.keyStates['a']) {
-          desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
-        } else if (this.keyStates['d']) {
-          
-          desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
+        // Determine animation based on movement direction
+        const groundType = this.detectGroundType();
+        if (groundType === 'stairs' && this.keyStates['w']) {
+          desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
+          this.model.position.y += (this.runSpeed * 0.6) * delta;
+        } else {
+          // Check for specific movement patterns
+          if (this.keyStates['w'] && this.keyStates['a']) {
+            desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
+          } else if (this.keyStates['w'] && this.keyStates['d']) {
+            desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
+          } else if (this.keyStates['s'] && this.keyStates['a']) {
+            desiredAction = this.findActionNameMatch('backleft') || 'BackLeft';
+          } else if (this.keyStates['s'] && this.keyStates['d']) {
+            desiredAction = this.findActionNameMatch('backright') || 'BackRight';
+          } else if (this.keyStates['w']) {
+            desiredAction = this.findActionNameMatch('run') || 'running';
+          } else if (this.keyStates['s']) {
+            desiredAction = this.findActionNameMatch('backward') || 'Backward';
+          } else if (this.keyStates['a']) {
+            desiredAction = this.findActionNameMatch('strafeleft') || 'StrafeLeft';
+          } else if (this.keyStates['d']) {
+            desiredAction = this.findActionNameMatch('straferight') || 'StrafeRight';
+          }
         }
+      } else {
+        desiredAction = this.findActionNameMatch('idle') || 'idle';
       }
-    } else {
-      desiredAction = this.findActionNameMatch('idle') || 'idle';
     }
 
     this.playAction(desiredAction, this.fadeDuration);
