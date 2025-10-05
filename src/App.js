@@ -129,19 +129,30 @@ class App {
         });
         
         // Start with main menu visible
-        this.isGameStarted = false;
+        this.isGameStarted = true; // Auto-start the game to show the scene
         this.isGamePaused = false;
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
             70, window.innerWidth / window.innerHeight, 0.01, 100
         );
-        this.camera.position.set(0, 2, 6);
+        this.camera.position.set(0, 5, 10);
+        this.camera.lookAt(0, 0, 0);
 
         // Scene + lights
         this.scene = new THREE.Scene();
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         this.scene.add(hemiLight);
+        
+        // Add directional light for better visibility
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 10, 5);
+        dirLight.castShadow = true;
+        this.scene.add(dirLight);
+        
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        this.scene.add(ambientLight);
 
     // Quality / performance preset
     const qs = new URLSearchParams(window.location.search);
@@ -239,11 +250,22 @@ class App {
         this.loadingBar.visible = true;
 
         this.world = new World(this);
-        const playerCube = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 2, 1),
-        new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
-    );
-  
+        
+        // Add a simple test cube to verify rendering
+        const testCube = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshBasicMaterial({ color: 0xff0000 })
+        );
+        testCube.position.set(0, 1, 0);
+        this.scene.add(testCube);
+        
+        // Add a ground plane
+        const groundGeometry = new THREE.PlaneGeometry(50, 50);
+        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -1;
+        this.scene.add(ground);
  
         this.renderer.setAnimationLoop(this.render.bind(this));
 
@@ -386,6 +408,10 @@ class App {
         const dt = this.clock.getDelta();
         const t = this.clock.getElapsedTime();
         
+        // Always update dev controls and performance
+        this.devControls.update(dt);
+        this.perf.update(dt, t);
+        
         // Only update game logic if game is started and not paused
         if (this.isGameStarted && !this.isGamePaused && this.world?.ready) {
             this.world.update(t, dt);
@@ -449,7 +475,8 @@ class App {
             }
         }
 
-        
+        // Always render the scene
+        this.renderer.render(this.scene, this.camera);
     }
     
     // Add keyboard listener for pause menu
@@ -464,11 +491,6 @@ class App {
                 }
             }
         });
-        // Update dev controls (WASD + Orbit)
-        this.devControls.update(dt);
-        // Adaptive performance update (after scene update, before render)
-        this.perf.update(dt, t);
-        this.renderer.render(this.scene, this.camera);
     }
 
     setPaused(flag) {
