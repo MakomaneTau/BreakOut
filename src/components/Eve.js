@@ -168,7 +168,7 @@ class Eve {
           this.startRoll();
         }
       }
-      // WASD keys are handled in the update loop - no special handling needed here
+      // WASD keys and rotation keys are handled in the update loop
     });
 
     document.addEventListener('keyup', (event) => {
@@ -435,6 +435,15 @@ class Eve {
     } else if (!this.onGround) {
       desiredAction = this.findActionNameMatch('jump') || 'Jump';
     } else {
+      // Handle rotation first (Q/E keys)
+      const rotationSpeed = 3.0; // radians per second
+      if (this.keyStates['q']) {
+        this.model.rotation.y += rotationSpeed * delta;
+      }
+      if (this.keyStates['e']) {
+        this.model.rotation.y -= rotationSpeed * delta;
+      }
+
       // Handle WASD movement
       const movementVector = new THREE.Vector3();
       
@@ -450,14 +459,14 @@ class Eve {
         isMoving = true;
       }
       
-      // Left/Right (A/D)
-      if (this.keyStates['d']) {
-        const left = new THREE.Vector3(-1, 0, 0).applyQuaternion(this.model.quaternion).setY(0).normalize();
+      // Left/Right (A/D) - Fixed the mapping
+      if (this.keyStates['a']) {
+        const left = new THREE.Vector3(1, 0, 0).applyQuaternion(this.model.quaternion).setY(0).normalize();
         movementVector.add(left);
         isMoving = true;
       }
-      if (this.keyStates['a']) {
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.model.quaternion).setY(0).normalize();
+      if (this.keyStates['d']) {
+        const right = new THREE.Vector3(-1, 0, 0).applyQuaternion(this.model.quaternion).setY(0).normalize();
         movementVector.add(right);
         isMoving = true;
       }
