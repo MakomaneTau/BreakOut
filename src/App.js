@@ -8,6 +8,9 @@ import { HealthUI } from './components/ui/HealthUI.js';
 import { CameraUI } from './components/ui/CameraUI.js';
 import { TimerUI } from './components/ui/TimerUI.js';
 import { AmbientUI } from './components/ui/AmbientUI.js';
+import { MenuUI } from './components/ui/MenuUI.js';
+import { PauseUI } from './components/ui/PauseUI.js';
+import { SettingsUI } from './components/ui/SettingsUI.js';
 
 
 
@@ -78,6 +81,53 @@ class App {
             borderOpacity: 0.15,
             decorationOpacity: 0.4
         });
+
+        // Initialize Menu UI (show on startup)
+        this.menuUI = new MenuUI({
+            enableAnimatedBackground: true,
+            enableParticles: true,
+            particleCount: 80,
+            animationSpeed: 0.8,
+            onStartGame: () => {
+                this.startGame();
+            },
+            onShowSettings: () => {
+                this.settingsUI.show();
+            },
+            onQuit: () => {
+                window.close();
+            }
+        });
+        
+        // Initialize Pause UI
+        this.pauseUI = new PauseUI({
+            onResume: () => {
+                this.resumeGame();
+            },
+            onShowSettings: () => {
+                this.settingsUI.show();
+            },
+            onMainMenu: () => {
+                this.showMainMenu();
+            },
+            onRestart: () => {
+                this.restartGame();
+            }
+        });
+        
+        // Initialize Settings UI
+        this.settingsUI = new SettingsUI({
+            onClose: () => {
+                // Settings closed, return to previous state
+            },
+            onSettingChange: (key, value) => {
+                this.applySetting(key, value);
+            }
+        });
+        
+        // Start with main menu visible
+        this.isGameStarted = false;
+        this.isGamePaused = false;
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
@@ -207,11 +257,102 @@ class App {
         }, 100);
     }
 
+    /**
+     * Start the game
+     */
+    startGame() {
+        this.isGameStarted = true;
+        this.menuUI.hide();
+        
+        // Resume any paused animations
+        if (this.world?.ready) {
+            // Game logic continues
+        }
+    }
+    
+    /**
+     * Resume the game
+     */
+    resumeGame() {
+        this.isGamePaused = false;
+        // Resume game logic
+    }
+    
+    /**
+     * Pause the game
+     */
+    pauseGame() {
+        this.isGamePaused = true;
+        this.pauseUI.show();
+    }
+    
+    /**
+     * Show main menu
+     */
+    showMainMenu() {
+        this.isGameStarted = false;
+        this.isGamePaused = false;
+        this.menuUI.show();
+    }
+    
+    /**
+     * Restart the game
+     */
+    restartGame() {
+        // Reset game state
+        this.isGameStarted = true;
+        this.isGamePaused = false;
+        
+        // Reset health, timer, etc.
+        if (this.healthUI) {
+            this.healthUI.updateHealth(100, 100);
+            this.healthUI.updateLives(3, 3);
+        }
+        
+        if (this.timerUI) {
+            this.timerUI.resetTimer();
+        }
+        
+        // Reset world/player position
+        if (this.world?.eve) {
+            // Reset player position
+            this.world.eve.model.position.set(0, 0, 0);
+        }
+    }
+    
+    /**
+     * Apply setting changes
+     */
+    applySetting(key, value) {
+        switch (key) {
+            case 'particles':
+                if (this.ambientUI) {
+                    this.ambientUI.toggleParticles(value);
+                }
+                break;
+            case 'ambientEffects':
+                if (this.ambientUI) {
+                    this.ambientUI.toggleBorders(value);
+                }
+                break;
+            case 'masterVolume':
+                // Apply volume to audio context
+                break;
+            case 'mouseSensitivity':
+                if (this.devControls) {
+                    this.devControls.mouseSensitivity = value;
+                }
+                break;
+            // Add more setting applications as needed
+        }
+    }
+
     render() {
         const dt = this.clock.getDelta();
         const t = this.clock.getElapsedTime();
-
-        if (this.world?.ready) {
+        
+        // Only update game logic if game is started and not paused
+        if (this.isGameStarted && !this.isGamePaused && this.world?.ready) {
             this.world.update(t, dt);
             
             // Update health UI
@@ -279,6 +420,20 @@ class App {
         }
         
         this.renderer.render(this.scene, this.camera);
+    }
+    
+    // Add keyboard listener for pause menu
+    setupKeyboardListeners() {
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Escape') {
+                if (this.isGameStarted && !this.isGamePaused) {
+                    this.pauseGame();
+                } else if (this.isGamePaused) {
+                    this.resumeGame();
+                    this.pauseUI.hide();
+                }
+            }
+        });
     }
 }
 
