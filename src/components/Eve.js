@@ -69,7 +69,7 @@ class Eve {
     loader.load(
       'EveWorking.glb',
       gltf => {
-        gltf.scene.scale.set(0.7, 0.7, 0.7);
+        gltf.scene.scale.set(1.5, 1.5, 1.5);
         gltf.scene.position.set(3, 0, 0);
         gltf.scene.rotation.y = -Math.PI / 2;
 
