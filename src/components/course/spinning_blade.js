@@ -46,6 +46,12 @@ class spinning_blade {
 		);
 	}
 
+	// Register this obstacle as a collider
+	registerCollider(collisionManager) {
+		if (!this.model || !collisionManager) return null;
+		return collisionManager.add(this.model, 'box');
+	}
+
 	update(time, delta) {
 		if (!this.ready) return;
 		// Optional: animate or update platform model here

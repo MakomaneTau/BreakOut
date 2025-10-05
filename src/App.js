@@ -3,8 +3,24 @@ import { RGBELoader } from '../public/libs/three137/RGBELoader.js';
 import { LoadingBar } from '../public/libs/LoadingBar.js';
 import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
+import { CollisionManager } from './components/collision/CollisionManager.js';
+import { HealthUI } from './components/ui/HealthUI.js';
+import { CameraUI } from './components/ui/CameraUI.js';
+import { TimerUI } from './components/ui/TimerUI.js';
+import { AmbientUI } from './components/ui/AmbientUI.js';
+import { MenuUI } from './components/ui/MenuUI.js';
+import { PauseUI } from './components/ui/PauseUI.js';
+import { SettingsUI } from './components/ui/SettingsUI.js';
+
+
+
+
+import { PauseMenu } from './ui/pauseMenu.js';
+import { QualityPresets, autoSelectQuality } from './core/perfConfig.js';
+import { PerformanceManager } from './core/performance.js';
 
 class App {
+    
     initWASDControls() {
         this.move = { forward: false, backward: false, left: false, right: false };
         this.velocity = new THREE.Vector3();
@@ -27,6 +43,9 @@ class App {
         });
     }
     constructor() {
+      
+        this.collisionManager = new CollisionManager();
+
         const container = document.createElement('div');
         document.body.appendChild(container);
 
@@ -34,6 +53,84 @@ class App {
         this.loadingBar.visible = false;
         this.clock = new THREE.Clock();
         this.assetsPath = '/assets/';
+
+        // Initialize Health UI
+        this.healthUI = new HealthUI();
+        
+        // Initialize Camera UI
+        this.cameraUI = new CameraUI({
+            onCameraToggle: (isFirstPerson) => {
+                this.devControls.setCameraMode(isFirstPerson);
+            }
+        });
+        
+        // Initialize Timer UI
+        this.timerUI = new TimerUI({
+            initialTime: 210, // 3:30 in seconds
+            onTimeUp: () => {
+                console.log('Time\'s up!');
+                // You can add game over logic here if needed
+            }
+        });
+
+        // Initialize Ambient UI
+        this.ambientUI = new AmbientUI({
+            enableBorders: true,
+            enableCornerDecorations: true,
+            enableParticles: true,
+            enableAnimatedBackground: true,
+            particleCount: 30,
+            particleSpeed: 0.3,
+            borderOpacity: 0.15,
+            decorationOpacity: 0.4
+        });
+
+        // Initialize Menu UI (show on startup)
+        this.menuUI = new MenuUI({
+            enableAnimatedBackground: true,
+            enableParticles: true,
+            particleCount: 80,
+            animationSpeed: 0.8,
+            onStartGame: () => {
+                this.startGame();
+            },
+            onShowSettings: () => {
+                this.settingsUI.show();
+            },
+            onQuit: () => {
+                window.close();
+            }
+        });
+        
+        // Initialize Pause UI
+        this.pauseUI = new PauseUI({
+            onResume: () => {
+                this.resumeGame();
+            },
+            onShowSettings: () => {
+                this.settingsUI.show();
+            },
+            onMainMenu: () => {
+                this.showMainMenu();
+            },
+            onRestart: () => {
+                this.restartGame();
+            }
+        });
+        
+        // Initialize Settings UI
+        this.settingsUI = new SettingsUI({
+            onClose: () => {
+                // Settings closed, return to previous state
+            },
+            onSettingChange: (key, value) => {
+                this.applySetting(key, value);
+            }
+        });
+        
+        // Start with main menu visible
+        this.isGameStarted = false;
+        this.isGamePaused = false;
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
@@ -46,29 +143,77 @@ class App {
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         this.scene.add(hemiLight);
 
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
-        // Enable local clipping so we can clip geometry (e.g., half blades)
-        this.renderer.localClippingEnabled = true;
-        container.appendChild(this.renderer.domElement);
+    // Quality / performance preset
+    const qs = new URLSearchParams(window.location.search);
+    const presetName = qs.get('quality') || autoSelectQuality();
+    this.qualityPresetName = ['low','medium','high'].includes(presetName) ? presetName : 'medium';
+    this.qualityPreset = QualityPresets[this.qualityPresetName];
+
+    // Renderer
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.localClippingEnabled = true;
+    container.appendChild(this.renderer.domElement);
+
+    // Performance Manager (adaptive pixel ratio)
+    this.perf = new PerformanceManager(this.renderer, this.qualityPreset);
 
         // Dev controls for moving around the scene
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
-        // Quick key to reframe the whole scene at any time
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyF') {
-                this.devControls.frameObject(this.scene, 1.3);
+
+        // Pause state
+        this.paused = false;
+        this.pauseMenu = new PauseMenu({
+            onResume: () => this.setPaused(false),
+            onRestart: () => window.location.reload(),
+            onMainMenu: () => {
+                // Tear down and signal to show main menu
+                this.destroy();
+                window.dispatchEvent(new CustomEvent('show-main-menu'));
             }
         });
 
+        // Keyboard shortcuts
+        this._onKeyDown = (e) => {
+            if (e.code === 'KeyF') {
+                this.devControls.frameObject(this.scene, 1.3);
+            } else if (e.code === 'KeyP') {
+                // Cycle quality preset on demand
+                const order = ['low','medium','high'];
+                let idx = order.indexOf(this.qualityPresetName);
+                idx = (idx + 1) % order.length;
+                this.qualityPresetName = order[idx];
+                this.qualityPreset = QualityPresets[this.qualityPresetName];
+                this.perf.setPreset(this.qualityPreset);
+            } else if (e.code === 'Escape') {
+                this.setPaused(!this.paused);
+            }
+        };
+        window.addEventListener('keydown', this._onKeyDown);
+
+
+        // Dev controls for moving around the scene - completely disable keyboard
+        this.devControls = new DevControls(this.camera, this.renderer.domElement);
+        this.devControls.enableKeys = false;
+        this.devControls.enablePan = false;  // Disable panning completely
+        this.devControls.keys = {
+            LEFT: null,
+            UP: null,
+            RIGHT: null,
+            BOTTOM: null
+        };
+        
+        // Disable keyboard events on the controls
+        this.devControls.keyboard = {
+            enabled: false
+        };
 
         this.setEnvironment();
         this.load();
 
-        window.addEventListener('resize', this.resize.bind(this));
+        this._onResize = this.resize.bind(this);
+        window.addEventListener('resize', this._onResize);
     }
 
     resize() {
@@ -94,29 +239,281 @@ class App {
         this.loadingBar.visible = true;
 
         this.world = new World(this);
-
+        const playerCube = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 2, 1),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+    );
+  
+ 
         this.renderer.setAnimationLoop(this.render.bind(this));
+
+        // Setup health UI updates
+        this.setupHealthUI();
+    }
+
+    setupHealthUI() {
+        // Wait for world to be ready
+        const checkWorldReady = setInterval(() => {
+            if (this.world?.ready && this.world.eve?.health) {
+                clearInterval(checkWorldReady);
+                
+                const playerHealth = this.world.eve.health;
+                
+                // Initial UI update
+                this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth);
+                this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
+                
+                // Hook into health events
+                const originalOnDamage = playerHealth.onDamage;
+                playerHealth.onDamage = (damage, health, maxHealth, damageType) => {
+                    if (originalOnDamage) originalOnDamage(damage, health, maxHealth, damageType);
+                    this.healthUI.updateHealth(health, maxHealth);
+                    this.healthUI.flashDamage();
+                };
+                
+                const originalOnHeal = playerHealth.onHeal;
+                playerHealth.onHeal = (amount, health, maxHealth) => {
+                    if (originalOnHeal) originalOnHeal(amount, health, maxHealth);
+                    this.healthUI.updateHealth(health, maxHealth);
+                };
+                
+                const originalOnLifeLost = playerHealth.onLifeLost;
+                playerHealth.onLifeLost = (lives, maxLives) => {
+                    if (originalOnLifeLost) originalOnLifeLost(lives, maxLives);
+                    this.healthUI.updateLives(lives, maxLives);
+                };
+                
+                const originalOnGameOver = playerHealth.onGameOver;
+                playerHealth.onGameOver = (stats) => {
+                    if (originalOnGameOver) originalOnGameOver(stats);
+                    this.healthUI.showGameOver(stats);
+                };
+            }
+        }, 100);
+    }
+
+    /**
+     * Start the game
+     */
+    startGame() {
+        this.isGameStarted = true;
+        this.menuUI.hide();
+        
+        // Resume any paused animations
+        if (this.world?.ready) {
+            // Game logic continues
+        }
+    }
+    
+    /**
+     * Resume the game
+     */
+    resumeGame() {
+        this.isGamePaused = false;
+        // Resume game logic
+    }
+    
+    /**
+     * Pause the game
+     */
+    pauseGame() {
+        this.isGamePaused = true;
+        this.pauseUI.show();
+    }
+    
+    /**
+     * Show main menu
+     */
+    showMainMenu() {
+        this.isGameStarted = false;
+        this.isGamePaused = false;
+        this.menuUI.show();
+    }
+    
+    /**
+     * Restart the game
+     */
+    restartGame() {
+        // Reset game state
+        this.isGameStarted = true;
+        this.isGamePaused = false;
+        
+        // Reset health, timer, etc.
+        if (this.healthUI) {
+            this.healthUI.updateHealth(100, 100);
+            this.healthUI.updateLives(3, 3);
+        }
+        
+        if (this.timerUI) {
+            this.timerUI.resetTimer();
+        }
+        
+        // Reset world/player position
+        if (this.world?.eve) {
+            // Reset player position
+            this.world.eve.model.position.set(0, 0, 0);
+        }
+    }
+    
+    /**
+     * Apply setting changes
+     */
+    applySetting(key, value) {
+        switch (key) {
+            case 'particles':
+                if (this.ambientUI) {
+                    this.ambientUI.toggleParticles(value);
+                }
+                break;
+            case 'ambientEffects':
+                if (this.ambientUI) {
+                    this.ambientUI.toggleBorders(value);
+                }
+                break;
+            case 'masterVolume':
+                // Apply volume to audio context
+                break;
+            case 'mouseSensitivity':
+                if (this.devControls) {
+                    this.devControls.mouseSensitivity = value;
+                }
+                break;
+            // Add more setting applications as needed
+        }
     }
 
     render() {
         const dt = this.clock.getDelta();
         const t = this.clock.getElapsedTime();
-
-        if (this.world?.ready) {
+        
+        // Only update game logic if game is started and not paused
+        if (this.isGameStarted && !this.isGamePaused && this.world?.ready) {
             this.world.update(t, dt);
-            this.loading = false;
-            this.loadingBar.visible = false;
-            // One-time framing of the scene once assets are ready
-            if (!this._framedOnce && !this.devControls?.restoredFromStorage) {
-                // Frame the entire scene to ensure all independent models are included
-                this.devControls.frameObject(this.scene, 1.3);
-                this._framedOnce = true;
+            
+            // Update health UI
+            if (this.healthUI) {
+                this.healthUI.update(dt);
+            }
+            
+            // Update timer UI
+            if (this.timerUI) {
+                this.timerUI.update(dt);
+            }
+            
+            // Update ambient UI
+            if (this.ambientUI) {
+                this.ambientUI.update(dt);
+            }
+
+            // Set target object for camera controls
+            const eve = this.world.eve;
+            if (eve && eve.model) {
+                this.devControls.setTargetObject(eve.model);
+                
+                // Only use third-person camera following if not in first-person mode
+                if (!this.devControls.isFirstPerson) {
+                    // Third-person camera following code (existing code)
+                    const distance = 6.0;         
+                    const heightOffset = 7.0;     
+                    const angleInRadians = Math.PI / 4; 
+                    const lookAtHeight = 1.0;     
+
+                    const forward = new THREE.Vector3(0, 0, 1)
+                        .applyQuaternion(eve.model.quaternion)
+                        .setY(0)
+                        .normalize();
+
+                    const targetPos = new THREE.Vector3().copy(eve.model.position);
+                    targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
+                    targetPos.y += heightOffset * Math.sin(angleInRadians);
+
+                    const smooth = 0.1;
+                    this.camera.position.lerp(targetPos, smooth);
+
+                    const lookAt = new THREE.Vector3().copy(eve.model.position);
+                    lookAt.addScaledVector(forward, 10);
+                    lookAt.y += lookAtHeight;
+                    this.camera.lookAt(lookAt);
+                } else {
+                    // First-person: camera follows character's rotation but faces forward
+                    this.camera.position.copy(eve.model.position);
+                    this.camera.position.y += 1.6; // Eye height
+                    
+                    // Copy character's rotation but flip it 180 degrees to face forward
+                    const cameraQuaternion = eve.model.quaternion.clone();
+                    const flipRotation = new THREE.Quaternion();
+                    flipRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // 180 degrees around Y
+                    cameraQuaternion.multiply(flipRotation);
+                    this.camera.quaternion.copy(cameraQuaternion);
+                }
             }
         }
 
+        
+    }
+    
+    // Add keyboard listener for pause menu
+    setupKeyboardListeners() {
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Escape') {
+                if (this.isGameStarted && !this.isGamePaused) {
+                    this.pauseGame();
+                } else if (this.isGamePaused) {
+                    this.resumeGame();
+                    this.pauseUI.hide();
+                }
+            }
+        });
         // Update dev controls (WASD + Orbit)
         this.devControls.update(dt);
+        // Adaptive performance update (after scene update, before render)
+        this.perf.update(dt, t);
         this.renderer.render(this.scene, this.camera);
+    }
+
+    setPaused(flag) {
+        this.paused = !!flag;
+        if (this.paused) {
+            this.pauseMenu.show();
+        } else {
+            this.pauseMenu.hide();
+        }
+    }
+
+    destroy() {
+        try {
+            // Stop render loop
+            this.renderer.setAnimationLoop(null);
+        } catch {}
+        // Remove listeners
+        if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
+        if (this._onResize) window.removeEventListener('resize', this._onResize);
+
+        // Dispose controls
+        if (this.devControls && typeof this.devControls.dispose === 'function') {
+            try { this.devControls.dispose(); } catch {}
+        }
+
+        // Basic cleanup of scene resources (best-effort)
+        try {
+            this.scene.traverse(obj => {
+                if (obj.geometry) obj.geometry.dispose?.();
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.());
+                    else obj.material.dispose?.();
+                }
+            });
+        } catch {}
+
+        // Remove canvas & overlay
+        try {
+            const canvas = this.renderer.domElement;
+            canvas?.parentNode?.removeChild(canvas);
+            if (this.perf?.overlay) this.perf.overlay.remove();
+        } catch {}
+
+        // Hide any overlays owned by App
+        this.pauseMenu?.hide();
     }
 }
 

@@ -18,6 +18,13 @@ export class DevControls {
         this.move = { forward: false, backward: false, left: false, right: false };
         this.direction = new THREE.Vector3();
         this.speed = 5;
+        
+        // Camera view movement
+        this.isFirstPerson = false; // Start with third-person
+        this.thirdPersonOffset = new THREE.Vector3(0, 1, -5); // offset for third-person view
+        this.targetObject = null; // Will be set to the character
+        this.targetPosition = new THREE.Vector3();
+
         this._addListeners();
 
         // Persistence: save/restore camera + orbit target
@@ -36,8 +43,12 @@ export class DevControls {
                 case 'KeyS': this.move.backward = true; break;
                 case 'KeyA': this.move.left = true; break;
                 case 'KeyD': this.move.right = true; break;
+                case 'KeyV': // Toggle between first-person and third-person view
+                    this.toggleCameraMode();
+                    break;
             }
         });
+
         window.addEventListener('keyup', (e) => {
             switch (e.code) {
                 case 'KeyW': this.move.forward = false; break;
@@ -47,6 +58,53 @@ export class DevControls {
             }
         });
     }
+
+    /**
+     * Set the target object (character) to follow
+     * @param {THREE.Object3D} targetObject - The object to follow
+     */
+    setTargetObject(targetObject) {
+        this.targetObject = targetObject;
+    }
+
+    /**
+     * Toggle camera mode
+     */
+    toggleCameraMode() {
+        this.isFirstPerson = !this.isFirstPerson;
+        this._updateCameraPosition(true);
+    }
+
+    /**
+     * Set camera mode
+     * @param {boolean} isFirstPerson - True for first-person, false for third-person
+     */
+    setCameraMode(isFirstPerson) {
+        this.isFirstPerson = isFirstPerson;
+        this._updateCameraPosition(true);
+    }
+
+    _updateCameraPosition(immediate = false) {
+        if (!this.targetObject) return;
+        
+        const targetPos = this.targetObject.position.clone();
+        
+        if (this.isFirstPerson) {
+            // First-person: position camera at character's eye level
+            const eyeHeight = 1.6; // height from base of character to "eyes"
+            this.targetPosition = targetPos.clone().add(new THREE.Vector3(0, eyeHeight, 0));
+        } else {
+            // Third-person: position camera behind character
+            const offset = this.thirdPersonOffset.clone();
+            offset.applyQuaternion(this.targetObject.quaternion); // rotate offset with character
+            this.targetPosition = targetPos.clone().add(offset);
+        }
+
+        if (immediate) {
+            this.camera.position.copy(this.targetPosition);
+        }
+    }
+
 
     update(dt) {
         this.direction.set(0, 0, 0);
@@ -69,6 +127,12 @@ export class DevControls {
             // Persist position/target when moved via WASD
             this._saveCameraStateDebounced();
         }
+
+        if (!this.isFirstPerson) {
+    // smooth lerp to third-person
+            this.camera.position.lerp(this.targetPosition, 0.1);
+        }
+
         this.controls.update();
     }
 

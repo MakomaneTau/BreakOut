@@ -1,0 +1,11 @@
+Model Information:
+* title:	Wild Land
+* source:	https://sketchfab.com/3d-models/wild-land-2162271957b24b4abcdbd8766907140f
+* author:	hirnlaich (https://sketchfab.com/hirnlaich)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Wild Land" (https://sketchfab.com/3d-models/wild-land-2162271957b24b4abcdbd8766907140f) by hirnlaich (https://sketchfab.com/hirnlaich) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

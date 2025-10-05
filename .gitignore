@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+BOUNDARY_COLLISION_REQUIREMENTS.MD
