@@ -15,6 +15,9 @@ import { SettingsUI } from './components/ui/SettingsUI.js';
 
 
 
+import { PauseMenu } from './ui/pauseMenu.js';
+import { QualityPresets, autoSelectQuality } from './core/perfConfig.js';
+import { PerformanceManager } from './core/performance.js';
 
 class App {
     
@@ -140,23 +143,54 @@ class App {
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         this.scene.add(hemiLight);
 
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
-        // Enable local clipping so we can clip geometry (e.g., half blades)
-        this.renderer.localClippingEnabled = true;
-        container.appendChild(this.renderer.domElement);
+    // Quality / performance preset
+    const qs = new URLSearchParams(window.location.search);
+    const presetName = qs.get('quality') || autoSelectQuality();
+    this.qualityPresetName = ['low','medium','high'].includes(presetName) ? presetName : 'medium';
+    this.qualityPreset = QualityPresets[this.qualityPresetName];
+
+    // Renderer
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.localClippingEnabled = true;
+    container.appendChild(this.renderer.domElement);
+
+    // Performance Manager (adaptive pixel ratio)
+    this.perf = new PerformanceManager(this.renderer, this.qualityPreset);
 
         // Dev controls for moving around the scene
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
-        // Quick key to reframe the whole scene at any time
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyF') {
-                this.devControls.frameObject(this.scene, 1.3);
+
+        // Pause state
+        this.paused = false;
+        this.pauseMenu = new PauseMenu({
+            onResume: () => this.setPaused(false),
+            onRestart: () => window.location.reload(),
+            onMainMenu: () => {
+                // Tear down and signal to show main menu
+                this.destroy();
+                window.dispatchEvent(new CustomEvent('show-main-menu'));
             }
         });
+
+        // Keyboard shortcuts
+        this._onKeyDown = (e) => {
+            if (e.code === 'KeyF') {
+                this.devControls.frameObject(this.scene, 1.3);
+            } else if (e.code === 'KeyP') {
+                // Cycle quality preset on demand
+                const order = ['low','medium','high'];
+                let idx = order.indexOf(this.qualityPresetName);
+                idx = (idx + 1) % order.length;
+                this.qualityPresetName = order[idx];
+                this.qualityPreset = QualityPresets[this.qualityPresetName];
+                this.perf.setPreset(this.qualityPreset);
+            } else if (e.code === 'Escape') {
+                this.setPaused(!this.paused);
+            }
+        };
+        window.addEventListener('keydown', this._onKeyDown);
 
 
         // Dev controls for moving around the scene - completely disable keyboard
@@ -178,7 +212,8 @@ class App {
         this.setEnvironment();
         this.load();
 
-        window.addEventListener('resize', this.resize.bind(this));
+        this._onResize = this.resize.bind(this);
+        window.addEventListener('resize', this._onResize);
     }
 
     resize() {
@@ -414,12 +449,7 @@ class App {
             }
         }
 
-        // Update dev controls
-        if (this.devControls.enabled) {
-            this.devControls.update(dt);
-        }
         
-        this.renderer.render(this.scene, this.camera);
     }
     
     // Add keyboard listener for pause menu
@@ -434,6 +464,56 @@ class App {
                 }
             }
         });
+        // Update dev controls (WASD + Orbit)
+        this.devControls.update(dt);
+        // Adaptive performance update (after scene update, before render)
+        this.perf.update(dt, t);
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    setPaused(flag) {
+        this.paused = !!flag;
+        if (this.paused) {
+            this.pauseMenu.show();
+        } else {
+            this.pauseMenu.hide();
+        }
+    }
+
+    destroy() {
+        try {
+            // Stop render loop
+            this.renderer.setAnimationLoop(null);
+        } catch {}
+        // Remove listeners
+        if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
+        if (this._onResize) window.removeEventListener('resize', this._onResize);
+
+        // Dispose controls
+        if (this.devControls && typeof this.devControls.dispose === 'function') {
+            try { this.devControls.dispose(); } catch {}
+        }
+
+        // Basic cleanup of scene resources (best-effort)
+        try {
+            this.scene.traverse(obj => {
+                if (obj.geometry) obj.geometry.dispose?.();
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.());
+                    else obj.material.dispose?.();
+                }
+            });
+        } catch {}
+
+        // Remove canvas & overlay
+        try {
+            const canvas = this.renderer.domElement;
+            canvas?.parentNode?.removeChild(canvas);
+            if (this.perf?.overlay) this.perf.overlay.remove();
+        } catch {}
+
+        // Hide any overlays owned by App
+        this.pauseMenu?.hide();
     }
 }
 
