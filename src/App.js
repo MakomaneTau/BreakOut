@@ -7,10 +7,17 @@ import { CollisionManager } from './components/collision/CollisionManager.js';
 import { HealthUI } from './components/ui/HealthUI.js';
 import { CameraUI } from './components/ui/CameraUI.js';
 import { TimerUI } from './components/ui/TimerUI.js';
+import { AmbientUI } from './components/ui/AmbientUI.js';
+import { MenuUI } from './components/ui/MenuUI.js';
+import { PauseUI } from './components/ui/PauseUI.js';
+import { SettingsUI } from './components/ui/SettingsUI.js';
 
 
 
 
+import { PauseMenu } from './ui/pauseMenu.js';
+import { QualityPresets, autoSelectQuality } from './core/perfConfig.js';
+import { PerformanceManager } from './core/performance.js';
 
 class App {
     
@@ -66,6 +73,65 @@ class App {
             }
         });
 
+        // Initialize Ambient UI
+        this.ambientUI = new AmbientUI({
+            enableBorders: true,
+            enableCornerDecorations: true,
+            enableParticles: true,
+            enableAnimatedBackground: true,
+            particleCount: 30,
+            particleSpeed: 0.3,
+            borderOpacity: 0.15,
+            decorationOpacity: 0.4
+        });
+
+        // Initialize Menu UI (show on startup)
+        this.menuUI = new MenuUI({
+            enableAnimatedBackground: true,
+            enableParticles: true,
+            particleCount: 80,
+            animationSpeed: 0.8,
+            onStartGame: () => {
+                this.startGame();
+            },
+            onShowSettings: () => {
+                this.settingsUI.show();
+            },
+            onQuit: () => {
+                window.close();
+            }
+        });
+        
+        // Initialize Pause UI
+        this.pauseUI = new PauseUI({
+            onResume: () => {
+                this.resumeGame();
+            },
+            onShowSettings: () => {
+                this.settingsUI.show();
+            },
+            onMainMenu: () => {
+                this.showMainMenu();
+            },
+            onRestart: () => {
+                this.restartGame();
+            }
+        });
+        
+        // Initialize Settings UI
+        this.settingsUI = new SettingsUI({
+            onClose: () => {
+                // Settings closed, return to previous state
+            },
+            onSettingChange: (key, value) => {
+                this.applySetting(key, value);
+            }
+        });
+        
+        // Start with main menu visible
+        this.isGameStarted = false;
+        this.isGamePaused = false;
+
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
             70, window.innerWidth / window.innerHeight, 0.01, 100
@@ -77,23 +143,54 @@ class App {
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         this.scene.add(hemiLight);
 
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
-        // Enable local clipping so we can clip geometry (e.g., half blades)
-        this.renderer.localClippingEnabled = true;
-        container.appendChild(this.renderer.domElement);
+    // Quality / performance preset
+    const qs = new URLSearchParams(window.location.search);
+    const presetName = qs.get('quality') || autoSelectQuality();
+    this.qualityPresetName = ['low','medium','high'].includes(presetName) ? presetName : 'medium';
+    this.qualityPreset = QualityPresets[this.qualityPresetName];
+
+    // Renderer
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.localClippingEnabled = true;
+    container.appendChild(this.renderer.domElement);
+
+    // Performance Manager (adaptive pixel ratio)
+    this.perf = new PerformanceManager(this.renderer, this.qualityPreset);
 
         // Dev controls for moving around the scene
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
-        // Quick key to reframe the whole scene at any time
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyF') {
-                this.devControls.frameObject(this.scene, 1.3);
+
+        // Pause state
+        this.paused = false;
+        this.pauseMenu = new PauseMenu({
+            onResume: () => this.setPaused(false),
+            onRestart: () => window.location.reload(),
+            onMainMenu: () => {
+                // Tear down and signal to show main menu
+                this.destroy();
+                window.dispatchEvent(new CustomEvent('show-main-menu'));
             }
         });
+
+        // Keyboard shortcuts
+        this._onKeyDown = (e) => {
+            if (e.code === 'KeyF') {
+                this.devControls.frameObject(this.scene, 1.3);
+            } else if (e.code === 'KeyP') {
+                // Cycle quality preset on demand
+                const order = ['low','medium','high'];
+                let idx = order.indexOf(this.qualityPresetName);
+                idx = (idx + 1) % order.length;
+                this.qualityPresetName = order[idx];
+                this.qualityPreset = QualityPresets[this.qualityPresetName];
+                this.perf.setPreset(this.qualityPreset);
+            } else if (e.code === 'Escape') {
+                this.setPaused(!this.paused);
+            }
+        };
+        window.addEventListener('keydown', this._onKeyDown);
 
 
         // Dev controls for moving around the scene - completely disable keyboard
@@ -115,7 +212,8 @@ class App {
         this.setEnvironment();
         this.load();
 
-        window.addEventListener('resize', this.resize.bind(this));
+        this._onResize = this.resize.bind(this);
+        window.addEventListener('resize', this._onResize);
     }
 
     resize() {
@@ -194,11 +292,102 @@ class App {
         }, 100);
     }
 
+    /**
+     * Start the game
+     */
+    startGame() {
+        this.isGameStarted = true;
+        this.menuUI.hide();
+        
+        // Resume any paused animations
+        if (this.world?.ready) {
+            // Game logic continues
+        }
+    }
+    
+    /**
+     * Resume the game
+     */
+    resumeGame() {
+        this.isGamePaused = false;
+        // Resume game logic
+    }
+    
+    /**
+     * Pause the game
+     */
+    pauseGame() {
+        this.isGamePaused = true;
+        this.pauseUI.show();
+    }
+    
+    /**
+     * Show main menu
+     */
+    showMainMenu() {
+        this.isGameStarted = false;
+        this.isGamePaused = false;
+        this.menuUI.show();
+    }
+    
+    /**
+     * Restart the game
+     */
+    restartGame() {
+        // Reset game state
+        this.isGameStarted = true;
+        this.isGamePaused = false;
+        
+        // Reset health, timer, etc.
+        if (this.healthUI) {
+            this.healthUI.updateHealth(100, 100);
+            this.healthUI.updateLives(3, 3);
+        }
+        
+        if (this.timerUI) {
+            this.timerUI.resetTimer();
+        }
+        
+        // Reset world/player position
+        if (this.world?.eve) {
+            // Reset player position
+            this.world.eve.model.position.set(0, 0, 0);
+        }
+    }
+    
+    /**
+     * Apply setting changes
+     */
+    applySetting(key, value) {
+        switch (key) {
+            case 'particles':
+                if (this.ambientUI) {
+                    this.ambientUI.toggleParticles(value);
+                }
+                break;
+            case 'ambientEffects':
+                if (this.ambientUI) {
+                    this.ambientUI.toggleBorders(value);
+                }
+                break;
+            case 'masterVolume':
+                // Apply volume to audio context
+                break;
+            case 'mouseSensitivity':
+                if (this.devControls) {
+                    this.devControls.mouseSensitivity = value;
+                }
+                break;
+            // Add more setting applications as needed
+        }
+    }
+
     render() {
         const dt = this.clock.getDelta();
         const t = this.clock.getElapsedTime();
-
-        if (this.world?.ready) {
+        
+        // Only update game logic if game is started and not paused
+        if (this.isGameStarted && !this.isGamePaused && this.world?.ready) {
             this.world.update(t, dt);
             
             // Update health UI
@@ -209,6 +398,11 @@ class App {
             // Update timer UI
             if (this.timerUI) {
                 this.timerUI.update(dt);
+            }
+            
+            // Update ambient UI
+            if (this.ambientUI) {
+                this.ambientUI.update(dt);
             }
 
             // Set target object for camera controls
@@ -255,12 +449,71 @@ class App {
             }
         }
 
-        // Update dev controls
-        if (this.devControls.enabled) {
-            this.devControls.update(dt);
-        }
         
+    }
+    
+    // Add keyboard listener for pause menu
+    setupKeyboardListeners() {
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Escape') {
+                if (this.isGameStarted && !this.isGamePaused) {
+                    this.pauseGame();
+                } else if (this.isGamePaused) {
+                    this.resumeGame();
+                    this.pauseUI.hide();
+                }
+            }
+        });
+        // Update dev controls (WASD + Orbit)
+        this.devControls.update(dt);
+        // Adaptive performance update (after scene update, before render)
+        this.perf.update(dt, t);
         this.renderer.render(this.scene, this.camera);
+    }
+
+    setPaused(flag) {
+        this.paused = !!flag;
+        if (this.paused) {
+            this.pauseMenu.show();
+        } else {
+            this.pauseMenu.hide();
+        }
+    }
+
+    destroy() {
+        try {
+            // Stop render loop
+            this.renderer.setAnimationLoop(null);
+        } catch {}
+        // Remove listeners
+        if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
+        if (this._onResize) window.removeEventListener('resize', this._onResize);
+
+        // Dispose controls
+        if (this.devControls && typeof this.devControls.dispose === 'function') {
+            try { this.devControls.dispose(); } catch {}
+        }
+
+        // Basic cleanup of scene resources (best-effort)
+        try {
+            this.scene.traverse(obj => {
+                if (obj.geometry) obj.geometry.dispose?.();
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.());
+                    else obj.material.dispose?.();
+                }
+            });
+        } catch {}
+
+        // Remove canvas & overlay
+        try {
+            const canvas = this.renderer.domElement;
+            canvas?.parentNode?.removeChild(canvas);
+            if (this.perf?.overlay) this.perf.overlay.remove();
+        } catch {}
+
+        // Hide any overlays owned by App
+        this.pauseMenu?.hide();
     }
 }
 

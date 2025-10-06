@@ -38,6 +38,30 @@ npm run dev
 ```
 Then open [http://localhost:5173](http://localhost:5173) in your browser.
 
+## Performance & Quality Settings
+
+The app now includes an adaptive performance manager:
+
+- Dynamic pixel ratio scaling targets 60fps while staying within preset bounds.
+- Three quality presets: `low`, `medium`, `high` controlling max pixel ratio & anisotropy.
+- Auto–selects a preset based on device memory & screen width (override via URL).
+- Real‑time overlay (top-left) shows current FPS and pixel ratio.
+
+### Switching Quality
+
+- Cycle presets at runtime: press `P`.
+- Force preset via URL query param: `?quality=low` / `?quality=medium` / `?quality=high`.
+
+### Overlay
+
+Displays: `PresetName FPS PR:pixelRatio`.
+
+### Future Ideas
+
+- Shadow resolution scaling.
+- Distance-based / lazy loading of far course segments.
+- Optional postprocessing toggle.
+
 ## Project Structure
 
 - `src/` — Main source code (App, components, controls, core, styles, utils)
