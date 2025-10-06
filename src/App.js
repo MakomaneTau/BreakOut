@@ -5,6 +5,8 @@ import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
 import { CollisionManager } from './components/collision/CollisionManager.js';
 import { HealthUI } from './components/ui/HealthUI.js';
+import { CameraUI } from './components/ui/CameraUI.js';
+import { TimerUI } from './components/ui/TimerUI.js';
 
 
 
@@ -47,6 +49,22 @@ class App {
 
         // Initialize Health UI
         this.healthUI = new HealthUI();
+        
+        // Initialize Camera UI
+        this.cameraUI = new CameraUI({
+            onCameraToggle: (isFirstPerson) => {
+                this.devControls.setCameraMode(isFirstPerson);
+            }
+        });
+        
+        // Initialize Timer UI
+        this.timerUI = new TimerUI({
+            initialTime: 210, // 3:30 in seconds
+            onTimeUp: () => {
+                console.log('Time\'s up!');
+                // You can add game over logic here if needed
+            }
+        });
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
@@ -187,42 +205,57 @@ class App {
             if (this.healthUI) {
                 this.healthUI.update(dt);
             }
+            
+            // Update timer UI
+            if (this.timerUI) {
+                this.timerUI.update(dt);
+            }
 
-            // follow Eve: place camera behind and above character
+            // Set target object for camera controls
             const eve = this.world.eve;
             if (eve && eve.model) {
-                // camera position parameters
-                const distance = 6.0;         
-                const heightOffset = 7.0;     
-                const angleInRadians = Math.PI / 4; 
-                const lookAtHeight = 1.0;     
-
-                // get character's forward direction
-                const forward = new THREE.Vector3(0, 0, 1)
-                    .applyQuaternion(eve.model.quaternion)
-                    .setY(0)
-                    .normalize();
-
-                // calculate camera position
-                const targetPos = new THREE.Vector3().copy(eve.model.position);
+                this.devControls.setTargetObject(eve.model);
                 
-                // Position camera behind character
-                targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
-                targetPos.y += heightOffset * Math.sin(angleInRadians);
+                // Only use third-person camera following if not in first-person mode
+                if (!this.devControls.isFirstPerson) {
+                    // Third-person camera following code (existing code)
+                    const distance = 6.0;         
+                    const heightOffset = 7.0;     
+                    const angleInRadians = Math.PI / 4; 
+                    const lookAtHeight = 1.0;     
 
-                // smooth camera movement
-                const smooth = 0.1;
-                this.camera.position.lerp(targetPos, smooth);
+                    const forward = new THREE.Vector3(0, 0, 1)
+                        .applyQuaternion(eve.model.quaternion)
+                        .setY(0)
+                        .normalize();
 
-                // Look in the direction the character is facing
-                const lookAt = new THREE.Vector3().copy(eve.model.position);
-                lookAt.addScaledVector(forward, 10);
-                lookAt.y += lookAtHeight;
-                this.camera.lookAt(lookAt);
+                    const targetPos = new THREE.Vector3().copy(eve.model.position);
+                    targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
+                    targetPos.y += heightOffset * Math.sin(angleInRadians);
+
+                    const smooth = 0.1;
+                    this.camera.position.lerp(targetPos, smooth);
+
+                    const lookAt = new THREE.Vector3().copy(eve.model.position);
+                    lookAt.addScaledVector(forward, 10);
+                    lookAt.y += lookAtHeight;
+                    this.camera.lookAt(lookAt);
+                } else {
+                    // First-person: camera follows character's rotation but faces forward
+                    this.camera.position.copy(eve.model.position);
+                    this.camera.position.y += 1.6; // Eye height
+                    
+                    // Copy character's rotation but flip it 180 degrees to face forward
+                    const cameraQuaternion = eve.model.quaternion.clone();
+                    const flipRotation = new THREE.Quaternion();
+                    flipRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // 180 degrees around Y
+                    cameraQuaternion.multiply(flipRotation);
+                    this.camera.quaternion.copy(cameraQuaternion);
+                }
             }
         }
 
-        // Only update orbital rotation, not keyboard controls
+        // Update dev controls
         if (this.devControls.enabled) {
             this.devControls.update(dt);
         }
