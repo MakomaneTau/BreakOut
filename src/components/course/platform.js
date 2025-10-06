@@ -121,10 +121,11 @@ class platform {
 			new laser_barrier(game, { position: [-32, 4.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
 		];
 
-		// Finish line as broad as platform
+		// Finish line as broad as platform - using box for better collision detection
 		const finishLineWidth = 15; // approximate platform width
 		const finishLineHeight = 8;
-		const finishLineGeometry = new THREE.PlaneGeometry(finishLineWidth, finishLineHeight);
+		const finishLineDepth = 2; // Add depth for better collision detection
+		const finishLineGeometry = new THREE.BoxGeometry(finishLineDepth, finishLineHeight, finishLineWidth);
 		const finishLineMaterial = new THREE.MeshBasicMaterial({
 			color: 0x00ff00,
 			transparent: true,
@@ -133,7 +134,14 @@ class platform {
 		});
 		this.finishLine = new THREE.Mesh(finishLineGeometry, finishLineMaterial);
 		this.finishLine.position.set(-45, 4, 0);
-		this.finishLine.rotation.y = Math.PI / 2;
+		// No rotation needed for box geometry
+		
+		// Set up finish line for collision detection
+		this.finishLine.userData = {
+			type: 'finish_line',
+			name: 'green_checkpoint'
+		};
+		
 		this.scene.add(this.finishLine);
 
 		this.load();
@@ -186,7 +194,16 @@ class platform {
 	// Register all obstacles with the collision system using the collision manager
 	registerObstaclesWithCollision() {
 		if (!this.collisionManager) return;
+		
 		this.obstacleColliders = this.collisionManager.registerPlatformObstacles(this);
+		
+		// Register finish line as a collider
+		if (this.finishLine) {
+			const finishLineCollider = this.collisionManager.add(this.finishLine, 'box');
+			if (finishLineCollider) {
+				this.obstacleColliders.push(finishLineCollider);
+			}
+		}
 	}
 
 	update(time, delta) {

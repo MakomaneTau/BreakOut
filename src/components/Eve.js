@@ -3,6 +3,7 @@ import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
 import { DRACOLoader } from '../../public/libs/three137/DRACOLoader.js';
 import { PlayerHealth } from './player/PlayerHealth.js';
 import { HealthConfig, DamageType } from '../config/healthConfig.js';
+import { WinAnimation } from './effects/WinAnimation.js';
 
 class Eve {
   constructor(game) {
@@ -40,6 +41,19 @@ class Eve {
 
     // collision detection
     this.collider = null;
+
+    // Winning animation system using component
+    this.winAnimation = new WinAnimation({
+      scene: this.scene,
+      character: this,
+      duration: 4.0,
+      particleCount: 60,
+      volume: 0.3,
+      soundEnabled: true
+    });
+
+    // Prevent multiple win triggers
+    this.winTriggered = false;
 
     // Initialize health system
     this.health = new PlayerHealth({
@@ -252,8 +266,15 @@ class Eve {
     this.collider.mesh.position.copy(originalPos);
     this.collider.update();
     
-    // If collision detected, apply damage
+    // If collision detected, check if it's a finish line first
     if (collision) {
+      // Handle special cases first (like checkpoints)
+      if (collision.mesh.userData?.type === 'finish_line') {
+        // This is a checkpoint, not a damaging obstacle - don't apply damage
+        return false; // Return false to indicate no damaging collision
+      }
+      
+      // Handle damaging obstacles
       this.handleCollisionDamage(collision);
     }
     
@@ -315,6 +336,34 @@ class Eve {
    */
   setCheckpoint(position) {
     this.health.setCheckpoint(position || this.model.position);
+  }
+
+  /**
+   * Trigger winning animation when passing green checkpoint
+   */
+  triggerWinAnimation() {
+    if (this.winAnimation.isRunning() || this.winTriggered) return; // Prevent multiple triggers
+    
+    this.winTriggered = true;
+    
+    // Trigger the component-based winning animation
+    this.winAnimation.trigger(this.model.position);
+  }
+
+  /**
+   * Configure winning animation settings
+   * @param {Object} options - Configuration options
+   */
+  configureWinAnimation(options) {
+    this.winAnimation.configure(options);
+  }
+
+  /**
+   * Check if winning animation is currently running
+   * @returns {boolean}
+   */
+  isWinningAnimationActive() {
+    return this.winAnimation.isRunning();
   }
 
   /**
@@ -384,6 +433,9 @@ class Eve {
   update(time, delta) {
     if (!this.ready) return;
     if (this.mixer) this.mixer.update(delta);
+
+    // Update winning animation component
+    this.winAnimation.update(delta);
 
     // Update health system first
     this.health.update(delta);
@@ -531,6 +583,16 @@ class Eve {
     const collision = this.collisionManager.findCollisionFor(this.collider);
     
     if (collision) {
+      // Handle special cases first (like checkpoints)
+      if (collision.mesh.userData?.type === 'finish_line') {
+        // This is a checkpoint, not a damaging obstacle
+        if (this.triggerWinAnimation) {
+          this.triggerWinAnimation();
+        }
+        return; // Don't process as damage
+      }
+      
+      // Handle damaging obstacles
       this.handleCollisionDamage(collision);
     }
   }
