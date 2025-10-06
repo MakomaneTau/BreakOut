@@ -378,9 +378,9 @@ class App {
                 // Only use third-person camera following if not in first-person mode
                 if (!this.devControls.isFirstPerson) {
                     // Third-person camera following code (existing code)
-                    const distance = 6.0;         
-                    const heightOffset = 7.0;     
-                    const angleInRadians = Math.PI / 4; 
+                    const distance = 3.5;         // Reduced from 6.0 to bring camera closer
+                    const heightOffset = 4.0;     // Reduced from 7.0 for lower camera angle
+                    const angleInRadians = Math.PI / 6; // Reduced from PI/4 (45°) to PI/6 (30°) for steeper angle
                     const lookAtHeight = 1.0;     
 
                     const forward = new THREE.Vector3(0, 0, 1)

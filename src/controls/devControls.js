@@ -21,7 +21,7 @@ export class DevControls {
         
         // Camera view movement
         this.isFirstPerson = false; // Start with third-person
-        this.thirdPersonOffset = new THREE.Vector3(0, 1, -5); // offset for third-person view
+        this.thirdPersonOffset = new THREE.Vector3(0, 1.5, -3); // offset for third-person view - closer and slightly higher
         this.targetObject = null; // Will be set to the character
         this.targetPosition = new THREE.Vector3();
 
