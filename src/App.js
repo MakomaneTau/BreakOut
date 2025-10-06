@@ -11,6 +11,7 @@ import { AmbientUI } from './components/ui/AmbientUI.js';
 import { MenuUI } from './components/ui/MenuUI.js';
 import { PauseUI } from './components/ui/PauseUI.js';
 import { SettingsUI } from './components/ui/SettingsUI.js';
+import { LoseComponent } from './components/ui/LoseComponent.js';
 
 
 
@@ -66,7 +67,7 @@ class App {
             initialTime: 210, // 3:30 in seconds
             onTimeUp: () => {
                 console.log('Time\'s up!');
-                // You can add game over logic here if needed
+                this.handleTimeUp();
             }
         });
 
@@ -122,6 +123,19 @@ class App {
             },
             onSettingChange: (key, value) => {
                 this.applySetting(key, value);
+            }
+        });
+        
+        // Initialize Lose Component
+        this.loseComponent = new LoseComponent({
+            onRestart: () => {
+                this.restartGame();
+            },
+            onMainMenu: () => {
+                this.showMainMenu();
+            },
+            onQuit: () => {
+                window.close();
             }
         });
         
@@ -251,7 +265,7 @@ class App {
                 const originalOnGameOver = playerHealth.onGameOver;
                 playerHealth.onGameOver = (stats) => {
                     if (originalOnGameOver) originalOnGameOver(stats);
-                    this.healthUI.showGameOver(stats);
+                    this.handleGameOver('lives', stats);
                 };
             }
         }, 100);
@@ -303,6 +317,11 @@ class App {
         this.isGameStarted = true;
         this.isGamePaused = false;
         
+        // Hide lose component if visible
+        if (this.loseComponent && this.loseComponent.isCurrentlyVisible()) {
+            this.loseComponent.hide();
+        }
+        
         // Reset health, timer, etc.
         if (this.healthUI) {
             this.healthUI.updateHealth(100, 100);
@@ -311,6 +330,12 @@ class App {
         
         if (this.timerUI) {
             this.timerUI.resetTimer();
+        }
+        
+        // Reset player health system
+        if (this.world?.eve?.health) {
+            this.world.eve.health.reset();
+            this.world.eve.ready = true; // Re-enable player controls
         }
         
         // Reset world/player position
@@ -345,6 +370,72 @@ class App {
                 break;
             // Add more setting applications as needed
         }
+    }
+
+    /**
+     * Handle time up event
+     */
+    handleTimeUp() {
+        if (!this.isGameStarted || this.isGamePaused) return;
+        
+        console.log('Time has run out - showing lose screen');
+        
+        // Stop the game
+        this.isGameStarted = false;
+        
+        // Get current stats
+        const stats = this.getCurrentGameStats();
+        stats.timeFormatted = '00:00';
+        
+        // Show lose component
+        this.loseComponent.show('time', stats);
+    }
+
+    /**
+     * Handle game over from health/lives
+     */
+    handleGameOver(lossType, stats) {
+        if (!this.isGameStarted || this.isGamePaused) return;
+        
+        console.log(`Game over due to ${lossType} - showing lose screen`);
+        
+        // Stop the game
+        this.isGameStarted = false;
+        
+        // Get current stats and merge with provided stats
+        const currentStats = this.getCurrentGameStats();
+        const finalStats = { ...currentStats, ...stats };
+        
+        // Show lose component
+        this.loseComponent.show(lossType, finalStats);
+    }
+
+    /**
+     * Get current game statistics
+     */
+    getCurrentGameStats() {
+        const stats = {
+            health: 0,
+            maxHealth: 100,
+            lives: 0,
+            maxLives: 3,
+            timeFormatted: '00:00'
+        };
+
+        // Get health and lives from player
+        if (this.world?.eve?.health) {
+            stats.health = this.world.eve.health.currentHealth;
+            stats.maxHealth = this.world.eve.health.maxHealth;
+            stats.lives = this.world.eve.health.currentLives;
+            stats.maxLives = this.world.eve.health.maxLives;
+        }
+
+        // Get current time from timer
+        if (this.timerUI) {
+            stats.timeFormatted = this.timerUI.getFormattedTime();
+        }
+
+        return stats;
     }
 
     render() {
