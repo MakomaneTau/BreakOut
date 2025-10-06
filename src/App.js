@@ -12,6 +12,7 @@ import { MenuUI } from './components/ui/MenuUI.js';
 import { PauseUI } from './components/ui/PauseUI.js';
 import { SettingsUI } from './components/ui/SettingsUI.js';
 import { LoseComponent } from './components/ui/LoseComponent.js';
+import { GameUI } from './components/ui/GameUI.js';
 
 
 
@@ -136,6 +137,28 @@ class App {
             },
             onQuit: () => {
                 window.close();
+            }
+        });
+        
+        // Initialize Game UI
+        this.gameUI = new GameUI({
+            onPause: () => {
+                this.pauseGame();
+            },
+            onSettings: () => {
+                this.settingsUI.show();
+            },
+            onRestart: () => {
+                this.restartGame();
+            },
+            onMainMenu: () => {
+                this.showMainMenu();
+            },
+            onToggleFullscreen: (isFullscreen) => {
+                this.toggleFullscreen(isFullscreen);
+            },
+            onToggleMute: (isMuted) => {
+                this.toggleMute(isMuted);
             }
         });
         
@@ -277,6 +300,7 @@ class App {
     startGame() {
         this.isGameStarted = true;
         this.menuUI.hide();
+        this.gameUI.show(); // Show game UI during gameplay
         
         // Resume any paused animations
         if (this.world?.ready) {
@@ -307,6 +331,7 @@ class App {
         this.isGameStarted = false;
         this.isGamePaused = false;
         this.menuUI.show();
+        this.gameUI.hide(); // Hide game UI when in main menu
     }
     
     /**
@@ -321,6 +346,9 @@ class App {
         if (this.loseComponent && this.loseComponent.isCurrentlyVisible()) {
             this.loseComponent.hide();
         }
+        
+        // Show game UI
+        this.gameUI.show();
         
         // Reset health, timer, etc.
         if (this.healthUI) {
@@ -340,8 +368,8 @@ class App {
         
         // Reset world/player position
         if (this.world?.eve) {
-            // Reset player position
-            this.world.eve.model.position.set(0, 0, 0);
+            // Reset player position to original starting position
+            this.world.eve.model.position.set(3, 0, 0);
         }
     }
     
@@ -438,6 +466,43 @@ class App {
         return stats;
     }
 
+    /**
+     * Toggle fullscreen mode
+     */
+    toggleFullscreen(isFullscreen) {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement) {
+            // Enter fullscreen
+            if (this.renderer.domElement.requestFullscreen) {
+                this.renderer.domElement.requestFullscreen();
+            } else if (this.renderer.domElement.webkitRequestFullscreen) {
+                this.renderer.domElement.webkitRequestFullscreen();
+            } else if (this.renderer.domElement.mozRequestFullScreen) {
+                this.renderer.domElement.mozRequestFullScreen();
+            }
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            }
+        }
+    }
+
+    /**
+     * Toggle mute state
+     */
+    toggleMute(isMuted) {
+        // This would integrate with your audio system
+        // For now, just log the state change
+        console.log(`Audio ${isMuted ? 'muted' : 'unmuted'}`);
+        
+        // You can integrate this with your audio context or sound effects
+        // Example: if (this.audioContext) { this.audioContext.suspend(); }
+    }
+
     render() {
         const dt = this.clock.getDelta();
         const t = this.clock.getElapsedTime();
@@ -459,6 +524,11 @@ class App {
             // Update ambient UI
             if (this.ambientUI) {
                 this.ambientUI.update(dt);
+            }
+            
+            // Update game UI
+            if (this.gameUI) {
+                this.gameUI.update(dt);
             }
 
             // Set target object for camera controls
