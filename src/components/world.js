@@ -38,7 +38,7 @@ class World {
         this.prison = new Prison(game);
         this.eve = new Eve(game);
         this.stairs = new stairs(game);
-        this.platform = new platform(game);
+        //this.platform = new platform(game);
         // Unified structure containing prison, stairs, and platform
         this.structure = new Structure(game, {
             // You can change the overall position/rotation/scale here
@@ -46,7 +46,7 @@ class World {
             //rotation: new THREE.Euler(Math.PI, -Math.PI / 100, Math.PI),
             // scale: new THREE.Vector3(1, 1, 1)
         });
-        this.ocean = new ocean(game);
+        //this.ocean = new ocean(game);
         this.wildIsland = new wild_island(game);
 
         this.load();
@@ -56,7 +56,7 @@ class World {
         // No longer loading the road model; just set the environment and mark ready.
         this.loadSkybox();
         // Load skybox for a big scene
-        this.loadSkybox();
+        //this.loadSkybox();
                 
         // Register prison walls as colliders after everything loads
         this.registerPrisonWalls();
@@ -90,7 +90,7 @@ class World {
         // Example animation
         //this.model.rotation.y += delta * 0.2;
         if (this.structure) this.structure.update(time, delta);
-        if (this.ocean) this.ocean.update(time, delta);
+        //if (this.ocean) this.ocean.update(time, delta);
         if (this.wildIsland) this.wildIsland.update(time, delta);
 
         if (this.eve) this.eve.update(time, delta);

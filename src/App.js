@@ -251,22 +251,6 @@ class App {
 
         this.world = new World(this);
         
-        // Add a simple test cube to verify rendering
-        const testCube = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 1, 1),
-            new THREE.MeshBasicMaterial({ color: 0xff0000 })
-        );
-        testCube.position.set(0, 1, 0);
-        this.scene.add(testCube);
-        
-        // Add a ground plane
-        const groundGeometry = new THREE.PlaneGeometry(50, 50);
-        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -1;
-        this.scene.add(ground);
- 
         this.renderer.setAnimationLoop(this.render.bind(this));
 
         // Setup health UI updates
