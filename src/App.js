@@ -17,6 +17,9 @@ import { GameUI } from './components/ui/GameUI.js';
 
 
 
+import { PauseMenu } from './ui/pauseMenu.js';
+import { QualityPresets, autoSelectQuality } from './core/perfConfig.js';
+import { PerformanceManager } from './core/performance.js';
 
 class App {
     
@@ -163,37 +166,79 @@ class App {
         });
         
         // Start with main menu visible
-        this.isGameStarted = false;
+        this.isGameStarted = true; // Auto-start the game to show the scene
         this.isGamePaused = false;
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
             70, window.innerWidth / window.innerHeight, 0.01, 100
         );
-        this.camera.position.set(0, 2, 6);
+        this.camera.position.set(0, 5, 10);
+        this.camera.lookAt(0, 0, 0);
 
         // Scene + lights
         this.scene = new THREE.Scene();
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         this.scene.add(hemiLight);
+        
+        // Add directional light for better visibility
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 10, 5);
+        dirLight.castShadow = true;
+        this.scene.add(dirLight);
+        
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        this.scene.add(ambientLight);
 
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
-        // Enable local clipping so we can clip geometry (e.g., half blades)
-        this.renderer.localClippingEnabled = true;
-        container.appendChild(this.renderer.domElement);
+    // Quality / performance preset
+    const qs = new URLSearchParams(window.location.search);
+    const presetName = qs.get('quality') || autoSelectQuality();
+    this.qualityPresetName = ['low','medium','high'].includes(presetName) ? presetName : 'medium';
+    this.qualityPreset = QualityPresets[this.qualityPresetName];
+
+    // Renderer
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.localClippingEnabled = true;
+    container.appendChild(this.renderer.domElement);
+
+    // Performance Manager (adaptive pixel ratio)
+    this.perf = new PerformanceManager(this.renderer, this.qualityPreset);
 
         // Dev controls for moving around the scene
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
-        // Quick key to reframe the whole scene at any time
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyF') {
-                this.devControls.frameObject(this.scene, 1.3);
+
+        // Pause state
+        this.paused = false;
+        this.pauseMenu = new PauseMenu({
+            onResume: () => this.setPaused(false),
+            onRestart: () => window.location.reload(),
+            onMainMenu: () => {
+                // Tear down and signal to show main menu
+                this.destroy();
+                window.dispatchEvent(new CustomEvent('show-main-menu'));
             }
         });
+
+        // Keyboard shortcuts
+        this._onKeyDown = (e) => {
+            if (e.code === 'KeyF') {
+                this.devControls.frameObject(this.scene, 1.3);
+            } else if (e.code === 'KeyP') {
+                // Cycle quality preset on demand
+                const order = ['low','medium','high'];
+                let idx = order.indexOf(this.qualityPresetName);
+                idx = (idx + 1) % order.length;
+                this.qualityPresetName = order[idx];
+                this.qualityPreset = QualityPresets[this.qualityPresetName];
+                this.perf.setPreset(this.qualityPreset);
+            } else if (e.code === 'Escape') {
+                this.setPaused(!this.paused);
+            }
+        };
+        window.addEventListener('keydown', this._onKeyDown);
 
 
         // Dev controls for moving around the scene - completely disable keyboard
@@ -215,7 +260,8 @@ class App {
         this.setEnvironment();
         this.load();
 
-        window.addEventListener('resize', this.resize.bind(this));
+        this._onResize = this.resize.bind(this);
+        window.addEventListener('resize', this._onResize);
     }
 
     resize() {
@@ -241,11 +287,22 @@ class App {
         this.loadingBar.visible = true;
 
         this.world = new World(this);
-        const playerCube = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 2, 1),
-        new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
-    );
-  
+        
+        // Add a simple test cube to verify rendering
+        const testCube = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshBasicMaterial({ color: 0xff0000 })
+        );
+        testCube.position.set(0, 1, 0);
+        this.scene.add(testCube);
+        
+        // Add a ground plane
+        const groundGeometry = new THREE.PlaneGeometry(50, 50);
+        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -1;
+        this.scene.add(ground);
  
         this.renderer.setAnimationLoop(this.render.bind(this));
 
@@ -507,6 +564,10 @@ class App {
         const dt = this.clock.getDelta();
         const t = this.clock.getElapsedTime();
         
+        // Always update dev controls and performance
+        this.devControls.update(dt);
+        this.perf.update(dt, t);
+        
         // Only update game logic if game is started and not paused
         if (this.isGameStarted && !this.isGamePaused && this.world?.ready) {
             this.world.update(t, dt);
@@ -533,53 +594,50 @@ class App {
 
             // Set target object for camera controls
             const eve = this.world.eve;
-            if (eve && eve.model) {
-                this.devControls.setTargetObject(eve.model);
+            if (eve && eve.model) this.devControls.setTargetObject(eve.model);
+            // if (eve && eve.model) {
+            //     this.devControls.setTargetObject(eve.model);
                 
-                // Only use third-person camera following if not in first-person mode
-                if (!this.devControls.isFirstPerson) {
-                    // Third-person camera following code (existing code)
-                    const distance = 3.5;         // Reduced from 6.0 to bring camera closer
-                    const heightOffset = 4.0;     // Reduced from 7.0 for lower camera angle
-                    const angleInRadians = Math.PI / 6; // Reduced from PI/4 (45°) to PI/6 (30°) for steeper angle
-                    const lookAtHeight = 1.0;     
+            //     // Only use third-person camera following if not in first-person mode
+            //     if (!this.devControls.isFirstPerson) {
+            //         // Third-person camera following code (existing code)
+            //         const distance = 6.0;         
+            //         const heightOffset = 7.0;     
+            //         const angleInRadians = Math.PI / 4; 
+            //         const lookAtHeight = 1.0;     
 
-                    const forward = new THREE.Vector3(0, 0, 1)
-                        .applyQuaternion(eve.model.quaternion)
-                        .setY(0)
-                        .normalize();
+            //         const forward = new THREE.Vector3(0, 0, 1)
+            //             .applyQuaternion(eve.model.quaternion)
+            //             .setY(0)
+            //             .normalize();
 
-                    const targetPos = new THREE.Vector3().copy(eve.model.position);
-                    targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
-                    targetPos.y += heightOffset * Math.sin(angleInRadians);
+            //         const targetPos = new THREE.Vector3().copy(eve.model.position);
+            //         targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
+            //         targetPos.y += heightOffset * Math.sin(angleInRadians);
 
-                    const smooth = 0.1;
-                    this.camera.position.lerp(targetPos, smooth);
+            //         const smooth = 0.1;
+            //         this.camera.position.lerp(targetPos, smooth);
 
-                    const lookAt = new THREE.Vector3().copy(eve.model.position);
-                    lookAt.addScaledVector(forward, 10);
-                    lookAt.y += lookAtHeight;
-                    this.camera.lookAt(lookAt);
-                } else {
-                    // First-person: camera follows character's rotation but faces forward
-                    this.camera.position.copy(eve.model.position);
-                    this.camera.position.y += 1.6; // Eye height
+            //         const lookAt = new THREE.Vector3().copy(eve.model.position);
+            //         lookAt.addScaledVector(forward, 10);
+            //         lookAt.y += lookAtHeight;
+            //         this.camera.lookAt(lookAt);
+            //     } else {
+            //         // First-person: camera follows character's rotation but faces forward
+            //         this.camera.position.copy(eve.model.position);
+            //         this.camera.position.y += 1.6; // Eye height
                     
-                    // Copy character's rotation but flip it 180 degrees to face forward
-                    const cameraQuaternion = eve.model.quaternion.clone();
-                    const flipRotation = new THREE.Quaternion();
-                    flipRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // 180 degrees around Y
-                    cameraQuaternion.multiply(flipRotation);
-                    this.camera.quaternion.copy(cameraQuaternion);
-                }
-            }
+            //         // Copy character's rotation but flip it 180 degrees to face forward
+            //         const cameraQuaternion = eve.model.quaternion.clone();
+            //         const flipRotation = new THREE.Quaternion();
+            //         flipRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // 180 degrees around Y
+            //         cameraQuaternion.multiply(flipRotation);
+            //         this.camera.quaternion.copy(cameraQuaternion);
+            //     }
+            // }
         }
 
-        // Update dev controls
-        if (this.devControls.enabled) {
-            this.devControls.update(dt);
-        }
-        
+        // Always render the scene
         this.renderer.render(this.scene, this.camera);
     }
     
@@ -595,6 +653,51 @@ class App {
                 }
             }
         });
+    }
+
+    setPaused(flag) {
+        this.paused = !!flag;
+        if (this.paused) {
+            this.pauseMenu.show();
+        } else {
+            this.pauseMenu.hide();
+        }
+    }
+
+    destroy() {
+        try {
+            // Stop render loop
+            this.renderer.setAnimationLoop(null);
+        } catch {}
+        // Remove listeners
+        if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
+        if (this._onResize) window.removeEventListener('resize', this._onResize);
+
+        // Dispose controls
+        if (this.devControls && typeof this.devControls.dispose === 'function') {
+            try { this.devControls.dispose(); } catch {}
+        }
+
+        // Basic cleanup of scene resources (best-effort)
+        try {
+            this.scene.traverse(obj => {
+                if (obj.geometry) obj.geometry.dispose?.();
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose?.());
+                    else obj.material.dispose?.();
+                }
+            });
+        } catch {}
+
+        // Remove canvas & overlay
+        try {
+            const canvas = this.renderer.domElement;
+            canvas?.parentNode?.removeChild(canvas);
+            if (this.perf?.overlay) this.perf.overlay.remove();
+        } catch {}
+
+        // Hide any overlays owned by App
+        this.pauseMenu?.hide();
     }
 }
 
