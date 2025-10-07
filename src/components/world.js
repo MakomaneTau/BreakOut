@@ -10,6 +10,7 @@ import { concrete_blocks } from './course/concrete_blocks.js';
 import { Structure } from './structure.js';
 import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';
+import { platform as paltform_two } from './course_two/platform.js';
 
 class World {
     loadSkybox() {
@@ -46,6 +47,7 @@ class World {
         this.eve = null;
        // this.ocean = new ocean(game);
         this.wildIsland = new wild_island(game);
+        this.platform = new paltform_two(game);
 
         this.load();
         
@@ -64,8 +66,6 @@ class World {
 
     load() {
         // No longer loading the road model; just set the environment and mark ready.
-        this.loadSkybox();
-        // Load skybox for a big scene
         this.loadSkybox();
                 
         // Register prison walls as colliders after everything loads
@@ -123,8 +123,10 @@ class World {
         // Example animation
         //this.model.rotation.y += delta * 0.2;
         if (this.structure) this.structure.update(time, delta);
-        if (this.ocean) this.ocean.update(time, delta);
+        //if (this.ocean) this.ocean.update(time, delta);
         if (this.wildIsland) this.wildIsland.update(time, delta);
+        if (this.platform) this.platform.update(time, delta);
+
 
         if (this.eve) this.eve.update(time, delta);
     }
