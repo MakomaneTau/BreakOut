@@ -125,6 +125,7 @@ class World {
         if (this.structure) this.structure.update(time, delta);
         //if (this.ocean) this.ocean.update(time, delta);
         if (this.wildIsland) this.wildIsland.update(time, delta);
+        
         if (this.platform) this.platform.update(time, delta);
 
 
