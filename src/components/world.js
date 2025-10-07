@@ -44,7 +44,7 @@ class World {
             // scale: new THREE.Vector3(1, 1, 1)
         });
        // this.ocean = new ocean(game);
-        //this.wildIsland = new wild_island(game);
+        this.wildIsland = new wild_island(game);
 
         this.load();
         
