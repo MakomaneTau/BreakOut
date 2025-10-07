@@ -22,6 +22,9 @@ class Eve {
     this.jumpSpeed = 12;
     this.runSpeed = 5;
     this.rollDistance = 1.2;
+  // Multiplier applied to roll distance so the visual displacement can be tuned.
+  // Set to 2.0 to double the effective forward distance during a roll.
+  this.rollDistanceBoost = 4.0;
     this.epsilon = 0.05;
     this.fadeDuration = 0.12;
 
@@ -30,6 +33,17 @@ class Eve {
     this.rollTimer = 0;
     this.rollDuration = 0.5;
     this.rollVelocity = new THREE.Vector3();
+  this.currentRollName = null;
+
+    // Jump horizontal movement support (similar to roll)
+    this.jumpVelocity = new THREE.Vector3();
+    this.jumpDistance = 1.67; // world units to move forward during jump (preferred)
+    this.jumpDuration = 0.6; // default, may be replaced by animation clip duration
+    this.jumpTimer = 0;
+    this.isJumping = false;
+    this.currentJumpName = null;
+  // Multiplier to scale horizontal jump displacement (useful tuning knob)
+  this.jumpDistanceBoost = 2.0;
 
     this.mixer = null;
     this.animations = [];
@@ -96,7 +110,61 @@ class Eve {
         }
 
         this.mixer = new THREE.AnimationMixer(gltf.scene);
-        this.animations = gltf.animations || [];
+
+        // Defensive root-motion stripping: some exporters (Mixamo, Blender, etc.) include
+        // position tracks which animate the model's world position. Those tracks will
+        // override movement code. We filter out likely root position tracks while keeping
+        // the rest of the clip intact (rotations, scale, etc.). This preserves jumps and
+        // quick-roll animations which are driven by rotation/pose but prevents world
+        // translation from being applied by the AnimationMixer.
+        const rawClips = gltf.animations || [];
+        this.animations = rawClips.map((clip) => {
+          // Clone the clip so we don't mutate original data
+          const c = clip.clone();
+
+          if (!c.tracks || c.tracks.length === 0) return c;
+
+          const clipNameLower = (c.name || '').toLowerCase();
+          // Preserve explicit jump/roll clips completely so their root motion and
+          // timing remain exactly as authored (user requested these remain unchanged).
+          if (clipNameLower.includes('jump') || clipNameLower.includes('roll') || clipNameLower.includes('quickroll')) {
+            return c;
+          }
+
+          // Build a defensive test for root-like target names
+          const modelNameLower = (this.model && this.model.name) ? this.model.name.toLowerCase() : '';
+          const isLikelyRootTarget = (targetNameLower) => {
+            if (!targetNameLower) return true;
+            // common substrings used by various exporters
+            const checks = ['root', 'hip', 'pelv', 'mixamo', 'scene', 'armatur'];
+            if (targetNameLower === modelNameLower) return true;
+            return checks.some(s => targetNameLower.includes(s));
+          };
+
+          // Filter out position tracks that target likely root nodes
+          c.tracks = c.tracks.filter((track) => {
+            const trackName = track.name || '';
+            const lowerName = trackName.toLowerCase();
+
+            // Only consider position tracks for removal
+            if (!lowerName.includes('.position')) return true;
+
+            // target portion is everything before the first '.'
+            const target = trackName.split('.')[0] || '';
+            const targetLower = target.toLowerCase();
+
+            // If this looks like a root target, drop the position track
+            if (isLikelyRootTarget(targetLower)) {
+              // Optional: collect debug info here if needed
+              return false; // remove this track
+            }
+
+            return true; // keep track
+          });
+
+          return c;
+        });
+
         this.actions = {};
         this.actionDurations = {};
 
@@ -124,8 +192,31 @@ class Eve {
 
         this.mixer.addEventListener('finished', (e) => {
           const finishedName = this.getActionNameFromAction(e.action);
-          if (finishedName && finishedName.toLowerCase().includes('roll')) {
+          if (!finishedName) return;
+
+          // Existing post-roll behavior: try up to 5 units forward
+          if (finishedName.toLowerCase().includes('roll')) {
+            try {
+              if (this.model) {
+                const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
+                  const candidate = this.model.position.clone().add(forward.clone().multiplyScalar(5));
+                  this.model.position.copy(candidate);
+                  if (this.collider && typeof this.collider.update === 'function') this.collider.update();
+              }
+            } catch (err) {
+              console.error('Error while applying post-roll teleport:', err);
+            }
+
             this.isRolling = false;
+            this.currentRollName = null;
+            return;
+          }
+
+          // Reset jump state when jump animation finishes
+          if (finishedName.toLowerCase().includes('jump')) {
+            this.isJumping = false;
+            this.currentJumpName = null;
+            this.jumpTimer = 0;
           }
         });
 
@@ -161,9 +252,8 @@ class Eve {
       this.keyStates[key] = true;
 
       if (key === ' ') { // Space → Jump
-        if (this.onGround) {
-          this.velocityY = this.jumpSpeed;
-          this.onGround = false;
+        if (this.onGround && !this.isJumping) {
+          this.startJump();
         }
       } else if (key === 'shift') { // Shift → Quick Roll
         if (this.onGround && !this.isRolling) {
@@ -180,16 +270,46 @@ class Eve {
     });
   }
 
+  startJump() {
+    if (!this.model || !this.mixer) return;
+
+    // vertical
+    this.velocityY = this.jumpSpeed;
+    this.onGround = false;
+
+    // horizontal: forward direction
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
+
+    // Determine duration from available jump clip if present
+    const jumpName = this.findActionNameMatch('jump') || 'Jump';
+    const duration = (this.actionDurations[jumpName] && this.actionDurations[jumpName] > 0) ? this.actionDurations[jumpName] : this.jumpDuration;
+    this.jumpDuration = duration;
+    this.jumpTimer = 0;
+    this.isJumping = true;
+    this.currentJumpName = jumpName;
+
+    // Calculate horizontal velocity so total displacement ~ jumpDistance
+    // Note: do NOT include jumpDistanceBoost here — the visual position update
+    // will be multiplied at apply-time per user request.
+    const jd = (this.jumpDistance || 1.67);
+    this.jumpVelocity.copy(forward).multiplyScalar(jd / this.jumpDuration);
+
+    // Play jump animation
+    this.playAction(jumpName, this.fadeDuration);
+  }
+
   startRoll() {
     this.isRolling = true;
     this.rollTimer = 0;
 
     const rollName = this.findActionNameMatch('roll') || this.findActionNameMatch('quickroll');
+    this.currentRollName = rollName || 'QuickRoll';
     this.rollDuration = (rollName && this.actionDurations[rollName]) ? this.actionDurations[rollName] : 0.5;
 
     const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
-    const rd = this.rollDistance;
-    this.rollVelocity.copy(forward).multiplyScalar(rd / this.rollDuration);
+  // [ROLL-DIST-BOOST] apply rollDistanceBoost to increase forward displacement
+  const rd = this.rollDistance * (this.rollDistanceBoost || 1.0);
+  this.rollVelocity.copy(forward).multiplyScalar(rd / this.rollDuration);
 
     this.playAction(rollName || 'QuickRoll', this.fadeDuration);
   }
@@ -257,6 +377,26 @@ class Eve {
       this.handleCollisionDamage(collision);
     }
     
+    return collision !== null;
+  }
+
+  // Check collision at a specific position without applying damage (safe probe)
+  checkCollisionAtPositionNoDamage(testPosition) {
+    if (!this.collider || !this.collisionManager) return false;
+
+    // Temporarily move collider to test position
+    const originalPos = this.collider.mesh.position.clone();
+    this.collider.mesh.position.copy(testPosition);
+    if (typeof this.collider.update === 'function') this.collider.update();
+
+    // Check for collision
+    const collision = this.collisionManager.findCollisionFor(this.collider);
+
+    // Restore original position
+    this.collider.mesh.position.copy(originalPos);
+    this.collider.update();
+
+    // Do NOT call handleCollisionDamage here; this is a probe
     return collision !== null;
   }
 
@@ -420,14 +560,45 @@ class Eve {
       this.model.position.y += this.velocityY * delta;
     }
 
+    // Apply horizontal movement while mid-air if we started a programmatic jump
+    if (this.isJumping) {
+      // compute single-frame delta movement from velocity
+      const singleDeltaMove = new THREE.Vector3(this.jumpVelocity.x * delta, 0, this.jumpVelocity.z * delta);
+      // user requested: don't change configured jumpDistance; instead double the
+      // applied model position. So we probe for collision using doubled displacement
+      // and apply doubled movement if safe.
+      const doubledMove = singleDeltaMove.clone().multiplyScalar(2.0);
+      const testPos = this.model.position.clone().add(doubledMove);
+      if (!this.checkCollisionAtPositionNoDamage(testPos)) {
+        this.model.position.x += doubledMove.x;
+        this.model.position.z += doubledMove.z;
+        if (this.collider && typeof this.collider.update === 'function') this.collider.update();
+      }
+      this.jumpTimer += delta;
+      if (this.jumpTimer >= this.jumpDuration) {
+        // finished horizontal component; keep vertical handled by gravity/ground code
+        this.isJumping = false;
+        this.currentJumpName = null;
+      }
+    }
+
     let desiredAction = 'idle';
     let isMoving = false;
 
     if (this.isRolling) {
-      // Check collision before rolling
-      const testPos = this.model.position.clone().addScaledVector(this.rollVelocity, delta);
+      // [ROLL-X-MOVE] Explicitly apply roll movement to the model's position
+      // We update X/Z separately (instead of addScaledVector) so the forward X
+      // motion is unambiguous and easy to find. The movement still respects
+      // collision checks by using the same delta displacement for the test position.
+      const deltaMove = new THREE.Vector3(this.rollVelocity.x * delta, this.rollVelocity.y * delta, this.rollVelocity.z * delta);
+      const testPos = this.model.position.clone().add(deltaMove);
       if (!this.checkCollisionAtPosition(testPos)) {
-        this.model.position.addScaledVector(this.rollVelocity, delta);
+        // Apply explicit per-axis update so roll movement matches the configured
+        // roll velocity (this preserves the authored animation movement and
+        // the programmatic roll displacement together).
+        this.model.position.x += deltaMove.x;
+        this.model.position.y += deltaMove.y;
+        this.model.position.z += deltaMove.z;
       }
       this.rollTimer += delta;
       if (this.rollTimer >= this.rollDuration) {
