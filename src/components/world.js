@@ -10,6 +10,7 @@ import { concrete_blocks } from './course/concrete_blocks.js';
 import { Structure } from './structure.js';
 import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';
+import { platform as paltform_two } from './course_two/platform.js';
 
 class World {
     loadSkybox() {
@@ -35,7 +36,6 @@ class World {
         this.tmpPos = new Vector3();
         this.ready = false;
 
-        this.eve = new Eve(game);
         // Unified structure containing prison, stairs, and platform
         this.structure = new Structure(game, {
             // You can change the overall position/rotation/scale here
@@ -43,15 +43,16 @@ class World {
             //rotation: new THREE.Euler(Math.PI, -Math.PI / 100, Math.PI),
             // scale: new THREE.Vector3(1, 1, 1)
         });
+        // Defer Eve creation until structure components likely loaded
+        this.eve = null;
        // this.ocean = new ocean(game);
-        //this.wildIsland = new wild_island(game);
+        this.wildIsland = new wild_island(game);
+        this.platform = new paltform_two(game);
 
         this.load();
         
-        // Connect character to helicopter after a short delay to ensure everything is loaded
-        setTimeout(() => {
-            this.connectCharacterToHelicopter();
-        }, 2000);
+        // Schedule Eve load after structure assembly
+        this._eveLoadCheck();
     }
 
     connectCharacterToHelicopter() {
@@ -66,8 +67,6 @@ class World {
     load() {
         // No longer loading the road model; just set the environment and mark ready.
         this.loadSkybox();
-        // Load skybox for a big scene
-        this.loadSkybox();
                 
         // Register prison walls as colliders after everything loads
         this.registerPrisonWalls();
@@ -75,6 +74,29 @@ class World {
         // Register platform obstacles as colliders after everything loads
         this.registerPlatformObstacles();
         this.ready = true;
+    }
+
+    _eveLoadCheck(retries = 0) {
+        const maxRetries = 20; // ~10s if interval 500ms
+        const delay = 500;
+        const platformReady = this.structure?.platform?.model;
+        const prisonReady = this.structure?.prison?.model;
+        const stairsReady = this.structure?.stairs?.model;
+        if (!this.eve && (platformReady || prisonReady || stairsReady)) {
+            // Instantiate Eve now
+            this.eve = new Eve({
+                assetsPath: this.assetsPath,
+                loadingBar: this.loadingBar,
+                scene: this.scene,
+                collisionManager: this.collisionManager
+            });
+            // Connect to helicopter if appears later
+            setTimeout(() => this.connectCharacterToHelicopter(), 1500);
+            return;
+        }
+        if (!this.eve && retries < maxRetries) {
+            setTimeout(() => this._eveLoadCheck(retries + 1), delay);
+        }
     }
 
     registerPrisonWalls() {
@@ -101,8 +123,11 @@ class World {
         // Example animation
         //this.model.rotation.y += delta * 0.2;
         if (this.structure) this.structure.update(time, delta);
-        if (this.ocean) this.ocean.update(time, delta);
+        //if (this.ocean) this.ocean.update(time, delta);
         if (this.wildIsland) this.wildIsland.update(time, delta);
+        
+        if (this.platform) this.platform.update(time, delta);
+
 
         if (this.eve) this.eve.update(time, delta);
     }
