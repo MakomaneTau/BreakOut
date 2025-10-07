@@ -46,6 +46,7 @@ class Eve {
     this.winAnimation = new WinAnimation({
       scene: this.scene,
       character: this,
+      helicopter: null, // Will be set when helicopter is available
       duration: 4.0,
       particleCount: 60,
       volume: 0.3,
@@ -351,6 +352,15 @@ class Eve {
   }
 
   /**
+   * Set helicopter reference for escape sequence
+   * @param {Object} helicopter - Helicopter instance
+   */
+  setHelicopter(helicopter) {
+    this.winAnimation.helicopter = helicopter;
+    this.winAnimation.helicopterEscape.helicopter = helicopter;
+  }
+
+  /**
    * Configure winning animation settings
    * @param {Object} options - Configuration options
    */
@@ -442,6 +452,11 @@ class Eve {
 
     // Check for damage collisions (separate from movement collision)
     this.checkDamageCollisions();
+
+    // Skip movement processing if controls are disabled (e.g., during helicopter escape)
+    if (this.controlsDisabled) {
+      return;
+    }
 
     const rayOrigin = new THREE.Vector3(this.model.position.x, this.model.position.y + 0.5, this.model.position.z);
     this.raycaster.set(rayOrigin, this.down);

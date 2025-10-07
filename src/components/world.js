@@ -47,6 +47,20 @@ class World {
         //this.wildIsland = new wild_island(game);
 
         this.load();
+        
+        // Connect character to helicopter after a short delay to ensure everything is loaded
+        setTimeout(() => {
+            this.connectCharacterToHelicopter();
+        }, 2000);
+    }
+
+    connectCharacterToHelicopter() {
+        if (this.eve && this.structure && this.structure.platform && this.structure.platform.helicopter) {
+            this.eve.setHelicopter(this.structure.platform.helicopter);
+            console.log('🚁 Character connected to helicopter for escape sequence');
+        } else {
+            console.warn('Could not connect character to helicopter - components not ready');
+        }
     }
 
     load() {

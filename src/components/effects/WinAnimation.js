@@ -2,6 +2,7 @@ import * as THREE from '../../../public/libs/three137/three.module.js';
 import { WinEffects } from './WinEffects.js';
 import { WinSound } from './WinSound.js';
 import { MissionPopup } from '../ui/MissionPopup.js';
+import { HelicopterEscape } from './HelicopterEscape.js';
 
 /**
  * WinAnimation - Main component that orchestrates winning animations
@@ -11,12 +12,13 @@ export class WinAnimation {
   constructor(options = {}) {
     this.scene = options.scene;
     this.character = options.character; // Reference to character with animation system
+    this.helicopter = options.helicopter; // Reference to helicopter for escape sequence
     this.isActive = false;
     this.duration = options.duration || 4.0; // Total animation duration
     this.timer = 0;
     
     // Animation phases
-    this.phase = 'idle'; // 'idle', 'initial_jump', 'celebration', 'ending'
+    this.phase = 'idle'; // 'idle', 'initial_jump', 'celebration', 'helicopter_escape', 'ending'
     this.phaseTimer = 0;
     
     // Store original character state
@@ -43,14 +45,20 @@ export class WinAnimation {
       onClose: () => console.log('Mission popup closed')
     });
     
-    // Animation settings
+    // Initialize helicopter escape sequence
+    this.helicopterEscape = new HelicopterEscape({
+      scene: this.scene,
+      character: this.character,
+      helicopter: this.helicopter,
+      duration: 8.0
+    });
+    
+    // Animation settings - shorter celebration before helicopter escape
     this.jumpSequence = [
       { time: 0.0, action: 'jump' },
-      { time: 1.0, action: 'idle' },
-      { time: 1.2, action: 'jump' },
-      { time: 2.2, action: 'idle' },
-      { time: 2.4, action: 'jump' },
-      { time: 3.2, action: 'idle' }
+      { time: 0.8, action: 'idle' },
+      { time: 1.0, action: 'jump' },
+      { time: 1.8, action: 'idle' }
     ];
     
     this.currentJumpIndex = 0;
@@ -85,13 +93,7 @@ export class WinAnimation {
     // Play sound
     this.sound.play();
     
-    // Show mission accomplished popup
-    this.missionPopup.show({
-      health: this.character?.health?.currentHealth || 100,
-      maxHealth: this.character?.health?.maxHealth || 100,
-      lives: this.character?.health?.currentLives || 3,
-      time: '03:45' // This could be passed from the game
-    });
+    // Mission popup will be shown after helicopter escape sequence completes
     
     // Start initial jump
     this.playCharacterAction('jump', 0.2);
@@ -136,6 +138,34 @@ export class WinAnimation {
       case 'celebration':
         this.updateJumpSequence(delta);
         this.updateCharacterRotation(delta);
+        
+        // After celebration, start helicopter escape
+        if (this.phaseTimer >= 2.0) {
+          this.phase = 'helicopter_escape';
+          this.phaseTimer = 0;
+          this.helicopterEscape.trigger();
+        }
+        break;
+        
+      case 'helicopter_escape':
+        // Update helicopter escape sequence
+        this.helicopterEscape.update(delta);
+        
+        // When escape is complete, show mission popup after 5 seconds
+        if (!this.helicopterEscape.isRunning()) {
+          this.phase = 'ending';
+          this.phaseTimer = 0;
+          
+          // Show mission popup after 5 seconds delay
+          setTimeout(() => {
+            this.missionPopup.show({
+              health: this.character?.health?.currentHealth || 100,
+              maxHealth: this.character?.health?.maxHealth || 100,
+              lives: this.character?.health?.currentLives || 3,
+              time: '03:45' // This could be passed from the game
+            });
+          }, 5000);
+        }
         break;
         
       case 'ending':
