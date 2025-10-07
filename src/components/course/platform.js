@@ -83,6 +83,7 @@ import { concrete_blocks } from './concrete_blocks.js';
 import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
 import { createPlatformMaterial } from '../../shaders/platformShader.js';
+import { Helicopter } from '../helicopter.js';
 
 class platform {
 	constructor(game) {
@@ -143,6 +144,13 @@ class platform {
 		};
 		
 		this.scene.add(this.finishLine);
+
+		// Create helicopter at finish line
+		this.helicopter = new Helicopter(game, {
+			position: new THREE.Vector3(-45, 8, 0), // Above the finish line
+			scale: new THREE.Vector3(1.5, 1.5, 1.5), // Slightly larger
+			rotation: new THREE.Euler(0, Math.PI, 0) // Face towards the player
+		});
 
 		this.load();
 	}
@@ -221,6 +229,9 @@ class platform {
 		if (this.spinningBlades) this.spinningBlades.forEach(sb => sb.update(time, delta));
 		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
 
+		// Update helicopter
+		if (this.helicopter) this.helicopter.update(time, delta);
+
 		// Pulsating effect for finish line
 		if (this.finishLine) {
 			const opacity = 0.4 + 0.2 * Math.sin(time * 5);
@@ -241,6 +252,9 @@ class platform {
 		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.dispose());
 		if (this.spinningBlades) this.spinningBlades.forEach(sb => sb.dispose());
 		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.dispose());
+		
+		// Dispose helicopter
+		if (this.helicopter) this.helicopter.dispose();
 		
 		this.model = null;
 		this.ready = false;

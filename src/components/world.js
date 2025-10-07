@@ -35,10 +35,7 @@ class World {
         this.tmpPos = new Vector3();
         this.ready = false;
 
-        this.prison = new Prison(game);
         this.eve = new Eve(game);
-        this.stairs = new stairs(game);
-        this.platform = new platform(game);
         // Unified structure containing prison, stairs, and platform
         this.structure = new Structure(game, {
             // You can change the overall position/rotation/scale here
@@ -46,8 +43,8 @@ class World {
             //rotation: new THREE.Euler(Math.PI, -Math.PI / 100, Math.PI),
             // scale: new THREE.Vector3(1, 1, 1)
         });
-        this.ocean = new ocean(game);
-        this.wildIsland = new wild_island(game);
+       // this.ocean = new ocean(game);
+        //this.wildIsland = new wild_island(game);
 
         this.load();
     }
@@ -69,8 +66,8 @@ class World {
     registerPrisonWalls() {
         // Wait a bit for prison to load, then register walls
         setTimeout(() => {
-            if (this.prison && this.prison.model) {
-                this.wallColliders = this.collisionManager.registerWallsFromModel(this.prison.model);
+            if (this.structure && this.structure.prison && this.structure.prison.model) {
+                this.wallColliders = this.collisionManager.registerWallsFromModel(this.structure.prison.model);
             }
         }, 1000);
     }
@@ -78,8 +75,8 @@ class World {
     registerPlatformObstacles() {
         // Wait a bit for platform obstacles to load, then register them
         setTimeout(() => {
-            if (this.platform) {
-                this.platform.registerObstaclesWithCollision();
+            if (this.structure && this.structure.platform) {
+                this.structure.platform.registerObstaclesWithCollision();
             }
         }, 1500); // Slightly longer delay to ensure all obstacles are loaded
     }
