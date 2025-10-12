@@ -5,7 +5,8 @@ import { concrete_blocks } from './course/concrete_blocks.js';
 import { Structure } from './structure.js';
 import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';
-import { platform } from './course_two/platform.js';
+import { platform as platform_two } from './course_two/platform.js';
+import { platform as platform_three } from './course_three/platform.js';
 
 class World {
     loadSkybox() {
@@ -36,7 +37,8 @@ class World {
             //rotation: new THREE.Euler(Math.PI, -Math.PI / 100, Math.PI),
             // scale: new THREE.Vector3(1, 1, 1)
         });
-        this.platform = new platform(game);
+        this.platform_two = new platform_two(game);
+        this.platform_three = new platform_three(game);
         //this.ocean = new ocean(game);
         this.wildIsland = new wild_island(game);
 
@@ -56,7 +58,8 @@ class World {
         if (this.structure) this.structure.update(time, delta);
         //if (this.ocean) this.ocean.update(time, delta);
         if (this.wildIsland) this.wildIsland.update(time, delta);
-        if (this.platform) this.platform.update(time, delta);
+        if (this.platform_two) this.platform_two.update(time, delta);
+        if (this.platform_three) this.platform_three.update(time, delta);
 
     }
 
