@@ -57,6 +57,14 @@ class concrete_blocks {
 		clone.scale.copy(this._scale);
 		clone.position.copy(this._position);
 
+		// Enable shadows on all meshes
+		clone.traverse(node => {
+			if (node.isMesh) {
+				node.castShadow = true;
+				node.receiveShadow = true;
+			}
+		});
+
 		this.scene.add(clone);
 		this.model = clone;
 		this.ready = true;

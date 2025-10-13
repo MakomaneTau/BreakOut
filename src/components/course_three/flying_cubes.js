@@ -77,7 +77,9 @@ export class FlyingCubesSpawner {
         const material = this.options.useBasicMaterial
             ? new THREE.MeshBasicMaterial({ color: this.options.color })
             : new THREE.MeshStandardMaterial({ color: this.options.color });
-        const cube = new THREE.Mesh(geometry, material);
+    const cube = new THREE.Mesh(geometry, material);
+    cube.castShadow = true;
+    cube.receiveShadow = true;
     const z = this._rand(-4, 4); // -4 to 4
         cube.position.set(this.options.start[0], this.options.start[1], z);
         const target = new THREE.Vector3(this.options.end[0], this.options.end[1], z);
@@ -112,7 +114,9 @@ export function loadFlyingCubes(scene, options = {}) {
     for (let i = 0; i < count; i++) {
         const geometry = new THREE.BoxGeometry(size, size, size);
         const material = new THREE.MeshStandardMaterial({ color });
-        const cube = new THREE.Mesh(geometry, material);
+    const cube = new THREE.Mesh(geometry, material);
+    cube.castShadow = true;
+    cube.receiveShadow = true;
     // Randomize Z between -4 and 4
     const z = Math.random() * 8 - 4; // (-4..4)
         cube.position.set(start[0], start[1], z);

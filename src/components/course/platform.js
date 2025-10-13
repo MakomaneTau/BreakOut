@@ -48,6 +48,14 @@ class platform {
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
 				gltf.scene.position.set(-21.2, 4, 0); // Adjust position as needed
 
+				// Enable shadows on platform meshes
+				gltf.scene.traverse(node => {
+					if (node.isMesh) {
+						node.receiveShadow = true;
+						node.castShadow = true;
+					}
+				});
+
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
 				this.ready = true;

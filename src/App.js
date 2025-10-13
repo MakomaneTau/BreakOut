@@ -46,8 +46,29 @@ class App {
 
         // Scene + lights
         this.scene = new THREE.Scene();
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
         this.scene.add(hemiLight);
+        
+        // Main shadow-casting directional light
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(25, 40, 20);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.set(2048, 2048);
+        const d = 80;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 200;
+        dirLight.shadow.bias = -0.0005;
+        this.scene.add(dirLight);
+
+    // Keep a reference and a movable target so the light follows the camera
+    this.dirLight = dirLight;
+    this._dirLightTarget = new THREE.Object3D();
+    this.scene.add(this._dirLightTarget);
+    this.dirLight.target = this._dirLightTarget;
 
     // Quality / performance preset
     const qs = new URLSearchParams(window.location.search);
@@ -56,10 +77,13 @@ class App {
     this.qualityPreset = QualityPresets[this.qualityPresetName];
 
     // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.outputEncoding = THREE.SRGBColorSpace ? THREE.SRGBColorSpace : THREE.sRGBEncoding;
     this.renderer.localClippingEnabled = true;
+        // Enable shadow mapping
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(this.renderer.domElement);
 
     // Performance Manager (adaptive pixel ratio)
@@ -153,6 +177,16 @@ class App {
         this.devControls.update(dt);
         // Adaptive performance update (after scene update, before render)
         this.perf.update(dt, t);
+        // Make the shadow-casting light follow the camera so its shadow frustum
+        // always covers the current gameplay area
+        if (this.dirLight && this._dirLightTarget) {
+            const cp = this.camera.position;
+            // Center the target on the camera; offset the light to the side/up
+            this._dirLightTarget.position.set(cp.x, cp.y, cp.z);
+            this.dirLight.position.set(cp.x + 25, cp.y + 40, cp.z + 20);
+            this.dirLight.target.updateMatrixWorld();
+        }
+
         this.renderer.render(this.scene, this.camera);
     }
 
