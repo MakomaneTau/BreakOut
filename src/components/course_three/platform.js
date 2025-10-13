@@ -39,8 +39,8 @@ class platform {
 			scale: [4.5, 2, 2],
 			speedMin: 0.15,
 			speedMax: 0.25,
-			start: [-180, 4.7, 0],
-			end: [-95, 4.7, 0],
+			start: [-180, 8.7, 0],
+			end: [-95, 8.7, 0],
 			intervalMin: 5.2,
 			intervalMax: 5.5,
 			maxActive: 5,
@@ -58,7 +58,7 @@ class platform {
 			gltf => {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
 				gltf.scene.scale.set(0.08, 1, 0.9); // Adjust scale as needed
-				gltf.scene.position.set(-213.1, 1.8, 0); // Adjust position as needed
+				gltf.scene.position.set(-213.1, 4, 0); // Adjust position as needed
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;

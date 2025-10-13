@@ -16,8 +16,8 @@ class Prison {
 		loader.load(
 			'scene.gltf',
 			gltf => {
-				gltf.scene.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
-				gltf.scene.position.set(0, -5, 0); // Adjust position as needed
+				gltf.scene.scale.set(3, 3, 3); // Adjust scale as needed
+				gltf.scene.position.set(-40, -19, 0); // Adjust position as needed
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
 				this.ready = true;

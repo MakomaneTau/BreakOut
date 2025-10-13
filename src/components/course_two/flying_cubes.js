@@ -14,11 +14,11 @@ export class FlyingCubesSpawner {
             color: 0xff0000,
             speedMin: 0.04,
             speedMax: 0.12,
-            start: [-80, 4.7, -3.5],
-            end: [-42, 2.3, -3.5],
+            start: [-80, 5.5, -3.5],
+            end: [-42, 5.5, -3.5],
             intervalMin: 0.8, // seconds
             intervalMax: 2.2,
-            maxActive: 40, // cap to avoid infinite growth
+            maxActive: 3, // cap to avoid infinite growth
             initialSpawn: true, // spawn immediately
             debug: false,
             useBasicMaterial: false // bypass lighting for visibility if needed
@@ -104,8 +104,8 @@ export function loadFlyingCubes(scene, options = {}) {
         size = 1,
         color = 0x00ff00,
         speed = 0.05,
-        start = [-80, 4.7, -3.5], // default start
-        end = [-45, 2.3, -3.5]    // default end
+        start = [-80, 7, -3.5], // default start
+        end = [-45, 7, -3.5]    // default end
     } = options;
 
     const cubes = [];

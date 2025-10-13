@@ -14,8 +14,8 @@ export class FlyingCubesSpawner {
             color: 0xff0000,
             speedMin: 0.04,
             speedMax: 0.12,
-            start: [-180, 4.7, -3.5],
-            end: [-95, 2.3, -3.5],
+            start: [-180, 5.7, -3.5],
+            end: [-95, 5.7, -3.5],
             intervalMin: 0.8, // seconds
             intervalMax: 2.2,
             maxActive: 4, // cap to avoid infinite growth

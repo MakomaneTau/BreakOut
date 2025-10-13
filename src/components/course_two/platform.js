@@ -12,10 +12,10 @@ class platform {
 		this.model = null;
 
 		this.laserBarriers = [
-			new laser_barrier(game, { position: [-71, 4.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-80, 4.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-63, 4.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-50, 4.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
+			new laser_barrier(game, { position: [-71, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-80, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-63, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-50, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
 		];
 
 		// Flying cubes spawner
@@ -44,7 +44,7 @@ class platform {
 			gltf => {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
-				gltf.scene.position.set(-72.3, 1.8, 0); // Adjust position as needed
+				gltf.scene.position.set(-72.3, 4, 0); // Adjust position as needed
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;

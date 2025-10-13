@@ -12,29 +12,29 @@ class platform {
 		this.ready = false;
 		this.model = null;
 		this.concreteBlocks = [
-			new concrete_blocks(game, { position: [-39, 2.3, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-36, 2.3, 3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-33, 2.3, -1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-29, 2.3, 3.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-26, 2.3, 1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-20, 2.3, -4.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-17, 2.3, 2.5], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-13, 2.3, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-10, 2.3, 4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-6, 2.3, 2], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-2.2, 2.3, -4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-36, 4.6, 3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-33, 4.6, -1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-29, 4.6, 3.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-26, 4.6, 1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-20, 4.6, -4.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-17, 4.6, 2.5], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-13, 4.6, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-10, 4.6, 4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-6, 4.6, 2], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-2.2, 4.6, -4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 		];
 
 		this.spinningBlades = [
-			new spinning_blade(game, { position: [-26, 1.9, -3.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-			new spinning_blade(game, { position: [-2.2, 1.9, 1], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-			new spinning_blade(game, { position: [-39, 1.9, 0.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-			new spinning_blade(game, { position: [-21, 1.9, 2], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+			new spinning_blade(game, { position: [-26, 4.2, -3.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+			new spinning_blade(game, { position: [-2.2, 4.2, 1], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+			new spinning_blade(game, { position: [-39, 4.2, 0.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+			new spinning_blade(game, { position: [-21, 4.2, 2], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
 		];
 
 		this.laserBarriers = [
-			new laser_barrier(game, { position: [-10, 4.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-32, 4.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
+			new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
 		];
 		this.load();
 	}
@@ -46,7 +46,7 @@ class platform {
 			gltf => {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
-				gltf.scene.position.set(-21.2, 1.8, 0); // Adjust position as needed
+				gltf.scene.position.set(-21.2, 4, 0); // Adjust position as needed
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
