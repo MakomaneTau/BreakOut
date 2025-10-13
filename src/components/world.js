@@ -10,7 +10,7 @@ import { concrete_blocks } from './course/concrete_blocks.js';
 import { Structure } from './structure.js';
 import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';
-import { platform as paltform_two } from './course_two/platform.js';
+import { platform as platform_two } from './course_two/platform.js';
 
 class World {
     loadSkybox() {
@@ -47,7 +47,7 @@ class World {
         this.eve = null;
        // this.ocean = new ocean(game);
         this.wildIsland = new wild_island(game);
-        this.platform = new paltform_two(game);
+    this.platform = new platform_two(game);
 
         this.load();
         

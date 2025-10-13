@@ -36,6 +36,14 @@ class laser_barrier {
 				obj.scale.copy(this._scale);
 				obj.position.copy(this._position);
 
+				// Enable shadows on barrier meshes
+				obj.traverse(node => {
+					if (node.isMesh) {
+						node.castShadow = true;
+						node.receiveShadow = true;
+					}
+				});
+
 				this.scene.add(obj);
 				this.model = obj;
 				this.ready = true;

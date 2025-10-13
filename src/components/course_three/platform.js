@@ -1,6 +1,6 @@
 import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
-import { laser_barrier } from './laser_barrier.js';
+import { laser_barrier, LaserBarrierSpawner } from './laser_barrier.js';
 import { FlyingCubesSpawner } from './flying_cubes.js'; // Handles repeated spawning of moving cubes
 
 class platform {
@@ -11,29 +11,43 @@ class platform {
 		this.ready = false;
 		this.model = null;
 
-		this.laserBarriers = [
-			new laser_barrier(game, { position: [-71, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-80, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-63, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-50, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
-		];
 
 		// Flying cubes spawner
 		this.flyingCubesSpawner = new FlyingCubesSpawner(this.scene, {
-			countMin: 1,
-			countMax: 2,
+			countMin: 2,
+			countMax: 4,
 			sizeMin: 1.5,
 			sizeMax: 3.0,
-			speedMin: 0.7 * 0.06,
-			speedMax: 1.1 * 0.09,
-			intervalMin: 1.5,
-			intervalMax: 3.0,
+			speedMin: 0.18,
+			speedMax: 0.32,
+			intervalMin: 5,
+			intervalMax: 5.3,
 			color: 0xff2222,
-			maxActive: 10,
-			initialSpawn: false,
+			maxActive: 5,
+			initialSpawn: true,
 			debug: false,
 			useBasicMaterial: false
 		});
+
+		// Laser barrier spawner (dynamic moving barriers)
+		this.laserBarrierSpawner = new LaserBarrierSpawner(this.scene, {
+			assetsPath: this.assetsPath,
+			countMin: 2,
+			countMax: 4,
+			sizeMin: 1,
+			sizeMax: 1,
+			scale: [4.5, 2, 2],
+			speedMin: 0.15,
+			speedMax: 0.25,
+			start: [-180, 8.7, 0],
+			end: [-95, 8.7, 0],
+			intervalMin: 5.2,
+			intervalMax: 5.5,
+			maxActive: 5,
+			initialSpawn: true,
+			debug: false
+		});
+
 		this.load();
 	}
 
@@ -43,14 +57,14 @@ class platform {
 			'scene.gltf',
 			gltf => {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
-				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
-				gltf.scene.position.set(-72.3, 4, 0); // Adjust position as needed
+				gltf.scene.scale.set(0.08, 1, 0.9); // Adjust scale as needed
+				gltf.scene.position.set(-213.1, 4, 0); // Adjust position as needed
 
-				// Ensure platform meshes cast and receive shadows
+				// Enable shadows on platform meshes
 				gltf.scene.traverse(node => {
 					if (node.isMesh) {
-						node.castShadow = true;
 						node.receiveShadow = true;
+						node.castShadow = true;
 					}
 				});
 
@@ -65,8 +79,8 @@ class platform {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
 		if (this.flyingCubesSpawner) this.flyingCubesSpawner.update(delta); // delta already seconds
+		if (this.laserBarrierSpawner) this.laserBarrierSpawner.update(delta);
 	}
 }
 
