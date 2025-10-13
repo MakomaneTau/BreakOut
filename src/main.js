@@ -8,12 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let loader = null;
 
     const menu = new MainMenu({
-        onStart: () => {
+        onStart: (level = 1) => {
             // Show loader overlay
             loader = new GameLoader();
             loader.show();
             // Begin constructing the app but keep overlay until world ready
-            app = new App();
+            app = new App({ level });
             window.game = app;
             // Poll readiness (world + eve + structure?)
             const startTime = performance.now();

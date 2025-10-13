@@ -44,7 +44,8 @@ class App {
             }
         });
     }
-    constructor() {
+    constructor(opts = {}) {
+        this.level = Math.max(1, Math.min(3, parseInt(opts.level) || 1));
 
         this.collisionManager = new CollisionManager();
 
@@ -286,7 +287,7 @@ class App {
         this.loading = true;
         this.loadingBar.visible = true;
 
-        this.world = new World(this);
+    this.world = new World(this, { level: this.level });
 
 
         this.renderer.setAnimationLoop(this.render.bind(this));

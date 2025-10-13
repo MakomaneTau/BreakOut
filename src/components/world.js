@@ -4,13 +4,13 @@ import { Vector3 } from '../../public/libs/three137/three.module.js';
 import { Prison } from './prison.js';
 import { Eve } from './Eve.js';
 import { stairs } from './stairs.js';
-import { platform } from './course/platform.js';
 import { CollisionManager } from './collision/CollisionManager.js';
 import { concrete_blocks } from './course/concrete_blocks.js';
 import { Structure } from './structure.js';
 import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';
 import { platform as platform_two } from './course_two/platform.js';
+import { platform as platform_three } from './course_three/platform.js';
 
 class World {
     loadSkybox() {
@@ -26,12 +26,13 @@ class World {
             ]);
     }
 
-    constructor(game) {
+    constructor(game, opts = {}) {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
         this.collisionManager = game.collisionManager || new CollisionManager();
         this.wallColliders = [];
+        this.level = Math.max(1, Math.min(3, parseInt(opts.level || game.level || 1)));
 
         this.tmpPos = new Vector3();
         this.ready = false;
@@ -45,9 +46,13 @@ class World {
         });
         // Defer Eve creation until structure components likely loaded
         this.eve = null;
-       // this.ocean = new ocean(game);
+        // Optional locations
+        // this.ocean = new ocean(game);
+        // Conditionally create additional courses based on level
+        this.platform_two = this.level >= 2 ? new platform_two(game) : null;
+        this.platform_three = this.level >= 3 ? new platform_three(game) : null;
+        // this.ocean = new ocean(game);
         this.wildIsland = new wild_island(game);
-    this.platform = new platform_two(game);
 
         this.load();
         
@@ -112,7 +117,26 @@ class World {
         // Wait a bit for platform obstacles to load, then register them
         setTimeout(() => {
             if (this.structure && this.structure.platform) {
-                this.structure.platform.registerObstaclesWithCollision();
+                // Some builds define a helper on platform; otherwise use CollisionManager fallback
+                if (typeof this.structure.platform.registerObstaclesWithCollision === 'function') {
+                    this.structure.platform.registerObstaclesWithCollision();
+                } else if (this.collisionManager?.registerPlatformObstacles) {
+                    this.collisionManager.registerPlatformObstacles(this.structure.platform);
+                }
+            }
+            if (this.level >= 2 && this.platform_two) {
+                if (typeof this.platform_two.registerObstaclesWithCollision === 'function') {
+                    this.platform_two.registerObstaclesWithCollision();
+                } else if (this.collisionManager?.registerPlatformObstacles) {
+                    this.collisionManager.registerPlatformObstacles(this.platform_two);
+                }
+            }
+            if (this.level >= 3 && this.platform_three) {
+                if (typeof this.platform_three.registerObstaclesWithCollision === 'function') {
+                    this.platform_three.registerObstaclesWithCollision();
+                } else if (this.collisionManager?.registerPlatformObstacles) {
+                    this.collisionManager.registerPlatformObstacles(this.platform_three);
+                }
             }
         }, 1500); // Slightly longer delay to ensure all obstacles are loaded
     }
@@ -124,9 +148,9 @@ class World {
         //this.model.rotation.y += delta * 0.2;
         if (this.structure) this.structure.update(time, delta);
         //if (this.ocean) this.ocean.update(time, delta);
-        if (this.wildIsland) this.wildIsland.update(time, delta);
-        
-        if (this.platform) this.platform.update(time, delta);
+    if (this.wildIsland) this.wildIsland.update(time, delta);
+    if (this.level >= 2 && this.platform_two) this.platform_two.update(time, delta);
+    if (this.level >= 3 && this.platform_three) this.platform_three.update(time, delta);
 
 
         if (this.eve) this.eve.update(time, delta);
