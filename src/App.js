@@ -183,9 +183,20 @@ class App {
         this.scene.add(hemiLight);
 
         // Add directional light for better visibility
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(10, 10, 5);
-        dirLight.castShadow = true;
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    dirLight.position.set(10, 18, 12);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.normalBias = 0.03;
+    const d = 50;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 120;
         this.scene.add(dirLight);
 
         // Add ambient light
@@ -198,10 +209,13 @@ class App {
         this.qualityPresetName = ['low', 'medium', 'high'].includes(presetName) ? presetName : 'medium';
         this.qualityPreset = QualityPresets[this.qualityPresetName];
 
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // Renderer
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.outputEncoding = THREE.sRGBEncoding;
+    // Enable soft shadows
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.localClippingEnabled = true;
         container.appendChild(this.renderer.domElement);
 

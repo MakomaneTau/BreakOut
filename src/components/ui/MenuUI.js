@@ -10,6 +10,15 @@ export class MenuUI {
     this.particles = [];
     this.backgroundCanvas = null;
     this.backgroundCtx = null;
+    // UI audio
+    this._audioCtx = null;
+    this._uiGain = null;
+  // Music state
+  this._bgm = null;
+  this._bgmPath = '/assets/soundtrack/stay-focused-383207.mp3';
+  this._bgmVolume = 0.35;
+  this._bgmNeedsUnlock = false;
+  this._bgmUnlocked = false;
     
     // Configuration
     this.config = {
@@ -26,6 +35,96 @@ export class MenuUI {
     
     this.createUI();
     this.startAnimations();
+  }
+
+  ensureBGM() {
+    // Reuse global music if available so it doesn't restart
+    if (window.__breakoutBGM instanceof Audio) {
+      this._bgm = window.__breakoutBGM;
+      return this._bgm;
+    }
+    if (!this._bgm) {
+      try {
+        const audio = new Audio(this._bgmPath);
+        audio.loop = true;
+        audio.volume = this._bgmVolume;
+        this._bgm = audio;
+        window.__breakoutBGM = audio;
+      } catch {}
+    }
+    return this._bgm;
+  }
+
+  async tryPlayBGM() {
+    try {
+      const audio = this.ensureBGM();
+      if (audio && audio.paused) await audio.play();
+      this._bgmUnlocked = true;
+      this._bgmNeedsUnlock = false;
+    } catch (_) {
+      // Autoplay likely blocked; wait for a user gesture to unlock
+      this._bgmNeedsUnlock = true;
+    }
+  }
+
+  // --- UI SFX (click) helpers ---
+  ensureAudioCtx() {
+    if (!this._audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        this._audioCtx = new AC();
+        this._uiGain = this._audioCtx.createGain();
+        this._uiGain.gain.value = this.getSfxVolume();
+        this._uiGain.connect(this._audioCtx.destination);
+      }
+    }
+    return this._audioCtx;
+  }
+
+  getMasterVolume() {
+    const v = this.loadSetting('masterVolume', 80);
+    return Math.max(0, Math.min(1, Number(v) / 100));
+  }
+
+  getSfxVolume() {
+    const v = this.loadSetting('sfxVolume', 90);
+    return Math.max(0, Math.min(1, Number(v) / 100)) * this.getMasterVolume();
+  }
+
+  updateUiGain() {
+    if (this._uiGain) {
+      this._uiGain.gain.value = this.getSfxVolume();
+    }
+  }
+
+  playClickSound() {
+    try {
+      const ctx = this.ensureAudioCtx();
+      if (!ctx) return;
+      this.updateUiGain();
+
+      // Short percussive "click" using a blip oscillator + quick decay
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1000, now);
+      osc.frequency.exponentialRampToValueAtTime(2200, now + 0.03);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.02, this.getSfxVolume()), now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this._uiGain);
+
+      osc.start(now);
+      osc.stop(now + 0.1);
+      osc.onended = () => {
+        try { osc.disconnect(); gain.disconnect(); } catch {}
+      };
+    } catch {}
   }
   
   /**
@@ -66,6 +165,30 @@ export class MenuUI {
     
     // Add to document
     document.body.appendChild(this.container);
+
+    // Try to start menu music; if blocked, unlock on first gesture
+    this.tryPlayBGM();
+
+    const unlockBGM = async () => {
+      if (this._bgmNeedsUnlock && !this._bgmUnlocked) {
+        try {
+          const audio = this.ensureBGM();
+          await audio.play();
+          this._bgmUnlocked = true;
+          this._bgmNeedsUnlock = false;
+        } catch {}
+      }
+    };
+    this.container.addEventListener('pointerdown', unlockBGM, { once: false });
+
+    // Also unlock/resume WebAudio on first user gesture for UI SFX
+    const unlockAudioCtx = async () => {
+      try {
+        const ctx = this.ensureAudioCtx();
+        if (ctx && ctx.state === 'suspended') await ctx.resume();
+      } catch {}
+    };
+    this.container.addEventListener('pointerdown', unlockAudioCtx, { once: false });
   }
   
   /**
@@ -217,7 +340,20 @@ export class MenuUI {
       button.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
     };
     
-    button.onclick = onClick;
+    button.onclick = async () => {
+      // UI click sound (centralized for all buttons)
+      this.playClickSound();
+      // Attempt to unlock music on button click if needed
+      if (this._bgmNeedsUnlock && !this._bgmUnlocked) {
+        try {
+          const audio = this.ensureBGM();
+          await audio.play();
+          this._bgmUnlocked = true;
+          this._bgmNeedsUnlock = false;
+        } catch {}
+      }
+      onClick();
+    };
     
     return button;
   }
@@ -549,6 +685,8 @@ export class MenuUI {
    */
   show() {
     this.container.style.display = 'flex';
+    // Ensure music plays when menu is shown
+    this.tryPlayBGM();
   }
   
   /**
@@ -556,6 +694,7 @@ export class MenuUI {
    */
   hide() {
     this.container.style.display = 'none';
+    // Don't stop global music on hide; gameplay flow can stop it later
   }
   
   /**
@@ -568,6 +707,7 @@ export class MenuUI {
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
+    // Do not stop global music here
   }
 }
 

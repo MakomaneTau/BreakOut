@@ -94,6 +94,14 @@ class Eve {
         gltf.scene.position.set(3, 0, 0);
         gltf.scene.rotation.y = -Math.PI / 2;
 
+        // Enable shadows on character meshes
+        gltf.scene.traverse(node => {
+          if (node.isMesh || node.isSkinnedMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+          }
+        });
+
         this.scene.add(gltf.scene);
         this.model = gltf.scene;
 

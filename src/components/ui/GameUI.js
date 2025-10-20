@@ -339,12 +339,6 @@ export class GameUI {
             this.toggleHelpPanel();
           }
           break;
-        case 'KeyR':
-          if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            this.onRestart();
-          }
-          break;
       }
     });
   }
