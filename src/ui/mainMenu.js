@@ -30,6 +30,8 @@ export class MainMenu {
         .level-btn:hover { transform:translateY(-1px); background:#243041; }
         .level-btn.active { background:#3b82f6; color:#fff; box-shadow:0 6px 18px rgba(59,130,246,.35); border-color:#60a5fa; }
         .footer { margin-top:24px; opacity:.35; font-size:12px; }
+        .music-toggle { position:fixed; top:14px; right:14px; width:42px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.18); background:rgba(0,0,0,.45); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s ease; box-shadow:0 4px 16px rgba(0,0,0,.25); }
+        .music-toggle:hover { transform:translateY(-1px); background:rgba(0,0,0,.6); }
       </style>
       <div class="menu-panel press-any-key">
         <h1 class="title">BreakOut</h1>
@@ -50,12 +52,16 @@ export class MainMenu {
       // Reuse a single global audio instance so playback continues across menus
       if (window.__breakoutBGM instanceof Audio) {
         this._bgm = window.__breakoutBGM;
+        // Apply persisted mute state to reused instance
+        try { this._bgm.muted = this._isMusicMuted(); } catch {}
         return this._bgm;
       }
       if (!this._bgm) {
         const audio = new Audio('/assets/soundtrack/stay-focused-383207.mp3');
         audio.loop = true;
         audio.volume = 0.35;
+        // Start with persisted mute state
+        try { audio.muted = this._isMusicMuted(); } catch {}
         this._bgm = audio;
         window.__breakoutBGM = audio;
       }
@@ -71,6 +77,33 @@ export class MainMenu {
       }
     };
     tryPlayBGM();
+
+    // Create music mute/unmute toggle button (top-right)
+    const musicBtn = document.createElement('button');
+    musicBtn.className = 'music-toggle';
+    musicBtn.title = 'Toggle Music';
+    // Initialize icon based on persisted state
+    const setMusicIcon = () => {
+      const muted = this._isMusicMuted();
+      musicBtn.textContent = muted ? '🔇' : '🔊';
+    };
+    setMusicIcon();
+    musicBtn.addEventListener('click', async () => {
+      // Toggle persisted state
+      const next = !this._isMusicMuted();
+      this._setMusicMuted(next);
+      setMusicIcon();
+      // Ensure BGM exists and reflect state; attempt play if now unmuted
+      const audio = ensureBGM();
+      try {
+        audio.muted = next;
+        if (!next && audio.paused) {
+          // If unmuting, try to play (may require prior unlock)
+          await audio.play().catch(() => {});
+        }
+      } catch {}
+    });
+    overlay.appendChild(musicBtn);
 
     // level selection state
     let selectedLevel = 1;
@@ -114,6 +147,8 @@ export class MainMenu {
       if (this._bgmNeedsUnlock && !this._bgmUnlocked) {
         try {
           const audio = ensureBGM();
+          // If user has music muted, we can still attempt a muted play (often allowed by autoplay policies)
+          if (this._isMusicMuted()) audio.muted = true;
           await audio.play();
           this._bgmUnlocked = true;
           this._bgmNeedsUnlock = false;
@@ -134,6 +169,7 @@ export class MainMenu {
       if (this._bgmNeedsUnlock && !this._bgmUnlocked) {
         try {
           const audio = ensureBGM();
+          if (this._isMusicMuted()) audio.muted = true;
           await audio.play();
           this._bgmUnlocked = true;
           this._bgmNeedsUnlock = false;
@@ -209,5 +245,22 @@ export class MainMenu {
       const saved = localStorage.getItem(`breakout_${key}`);
       return saved ? JSON.parse(saved) : defVal;
     } catch { return defVal; }
+  }
+
+  // --- music mute state helpers ---
+  _isMusicMuted() {
+    try {
+      return !!JSON.parse(localStorage.getItem('breakout_musicMuted') || 'false');
+    } catch {
+      return false;
+    }
+  }
+
+  _setMusicMuted(muted) {
+    try { localStorage.setItem('breakout_musicMuted', JSON.stringify(!!muted)); } catch {}
+    try {
+      const audio = (window.__breakoutBGM instanceof Audio) ? window.__breakoutBGM : this._bgm;
+      if (audio) audio.muted = !!muted;
+    } catch {}
   }
 }
