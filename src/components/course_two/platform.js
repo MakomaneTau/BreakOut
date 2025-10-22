@@ -12,27 +12,26 @@ class platform {
 		this.model = null;
 
 		this.laserBarriers = [
-			new laser_barrier(game, { position: [-71, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-80, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-63, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-50, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
+			new laser_barrier(game, { position: [-71, 7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-80, 7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-63, 7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-50, 7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
 		];
 
-		// Flying cubes spawner
+		// Flying cubes spawner (deterministic: edit coordinates/scale below)
 		this.flyingCubesSpawner = new FlyingCubesSpawner(this.scene, {
-			countMin: 1,
-			countMax: 2,
-			sizeMin: 1.5,
-			sizeMax: 3.0,
-			speedMin: 0.7 * 0.06,
-			speedMax: 1.1 * 0.09,
-			intervalMin: 1.5,
-			intervalMax: 3.0,
 			color: 0xff2222,
-			maxActive: 10,
-			initialSpawn: false,
+			useBasicMaterial: false,
+			loop: true,
 			debug: false,
-			useBasicMaterial: false
+			// EDIT ME: exactly 5 cubes, choose start/end coordinates, scale, and speed
+			cubeConfigs: [
+				{ start: [-80, 4.5, -4.5], end: [-42, 4.5, -4.5], scale: [1.2, 1, 3.2], speed: 0.03 },
+				{ start: [-80, 4.5, -1.5], end: [-42, 4.5, -1.5], scale: [1.0, 1.0, 3.0], speed: 0.04 },
+				{ start: [-80, 4.5,  0.0], end: [-42, 4.5,  0.0], scale: [1.5, 1, 2.0], speed: 0.09 },
+				{ start: [-80, 4.5,  1.8], end: [-42, 4.5,  1.8], scale: [0.9, 1, 2.4], speed: 0.06 },
+				{ start: [-80, 4.5,  4.5], end: [-42, 4.5,  4.2], scale: [1.3, 1, 3.3], speed: 0.05 },
+			]
 		});
 		this.load();
 	}

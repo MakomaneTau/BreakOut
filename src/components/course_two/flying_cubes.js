@@ -1,147 +1,120 @@
 // flying_cubes.js
-// Loads and adds flying cubes to a Three.js scene
+// Deterministic, looping flying cubes (no randomness)
 import * as THREE from '../../../public/libs/three137/three.module.js';
 
-// Spawner class for repeated cube spawning
+/**
+ * FlyingCubesSpawner
+ * - Spawns exactly the cubes you configure (no randomization)
+ * - Each cube moves from start -> end at a fixed speed
+ * - When it reaches end, it resets back to start and continues (loop)
+ */
 export class FlyingCubesSpawner {
     constructor(scene, options = {}) {
         this.scene = scene;
         this.options = Object.assign({
-            countMin: 3,
-            countMax: 7,
-            sizeMin: 0.6,
-            sizeMax: 1.4,
             color: 0xff0000,
-            speedMin: 0.04,
-            speedMax: 0.12,
-            start: [-80, 5.5, -3.5],
-            end: [-42, 5.5, -3.5],
-            intervalMin: 0.8, // seconds
-            intervalMax: 2.2,
-            maxActive: 3, // cap to avoid infinite growth
-            initialSpawn: true, // spawn immediately
+            loop: true,
+            useBasicMaterial: false,
             debug: false,
-            useBasicMaterial: false // bypass lighting for visibility if needed
+            // Provide 5 cubes by default; edit these to choose coordinates and scale
+            cubeConfigs: [
+                { start: [-80, 5.5, -3.5], end: [-42, 5.5, -3.5], scale: [1.2, 1.2, 1.2], speed: 0.08 },
+                { start: [-80, 6.0, -1.5], end: [-42, 6.0, -1.5], scale: [1.0, 1.0, 1.0], speed: 0.07 },
+                { start: [-80, 5.0,  0.0], end: [-42, 5.0,  0.0], scale: [1.5, 1.0, 1.0], speed: 0.09 },
+                { start: [-80, 6.5,  1.8], end: [-42, 6.5,  1.8], scale: [0.9, 0.9, 1.4], speed: 0.06 },
+                { start: [-80, 5.2,  3.2], end: [-42, 5.2,  3.2], scale: [1.3, 1.3, 1.3], speed: 0.085 },
+            ],
         }, options);
         this.cubes = [];
-        this.timer = 0;
-        this.nextInterval = this._rand(this.options.intervalMin, this.options.intervalMax);
-        if (this.options.initialSpawn) {
-            this.spawnCubes();
-        }
+        this._initCubes();
     }
 
-    spawnCubes() {
-        const count = Math.floor(this._rand(this.options.countMin, this.options.countMax + 1));
-        const newCubes = [];
-        for (let i = 0; i < count; i++) {
-            const size = this._rand(this.options.sizeMin, this.options.sizeMax);
-            const speed = this._rand(this.options.speedMin, this.options.speedMax);
-            const cube = this._createCube({ size, speed });
-            newCubes.push(cube);
+    _initCubes() {
+        // Remove any old cubes
+        this.cubes.forEach(c => this.scene.remove(c));
+        this.cubes.length = 0;
+
+        for (const cfg of this.options.cubeConfigs) {
+            const cube = this._createCube(cfg);
+            this.cubes.push(cube);
         }
-        // Enforce cap
-        if (this.cubes.length + newCubes.length > this.options.maxActive) {
-            const overflow = this.cubes.length + newCubes.length - this.options.maxActive;
-            const remove = this.cubes.splice(0, overflow);
-            remove.forEach(c => this.scene.remove(c));
-        }
-        this.cubes.push(...newCubes);
     }
 
     update(delta) {
-        // delta in seconds
-        this.timer += delta;
-        if (this.timer >= this.nextInterval) {
-            this.spawnCubes();
-            this.timer = 0;
-            this.nextInterval = this._rand(this.options.intervalMin, this.options.intervalMax);
-        }
-        // Update cubes and remove those that reached target
-        this.cubes = this.cubes.filter(cube => {
+        // Move each cube; reset to start when it reaches end (loop)
+        for (const cube of this.cubes) {
             const toTarget = new THREE.Vector3().subVectors(cube.userData.target, cube.position);
-            if (toTarget.length() > cube.userData.velocity.length()) {
-                cube.position.add(cube.userData.velocity);
-                return true;
+            const step = cube.userData.velocity.clone().multiplyScalar(delta / (1 / 60));
+            // Ensure consistent speed per frame baseline; or just use velocity directly per tick
+            if (toTarget.length() > step.length()) {
+                cube.position.add(step);
             } else {
+                // Arrived at end
                 cube.position.copy(cube.userData.target);
-                // Optionally remove from scene
-                this.scene.remove(cube);
-                return false;
+                if (this.options.loop) {
+                    // Reset to start and recompute direction
+                    cube.position.set(cube.userData.start.x, cube.userData.start.y, cube.userData.start.z);
+                    const dir = new THREE.Vector3().subVectors(cube.userData.target, cube.position).normalize();
+                    cube.userData.velocity.copy(dir.multiplyScalar(cube.userData.speed));
+                }
             }
-        });
+        }
     }
 
-    _createCube({ size, speed }) {
-        const geometry = new THREE.BoxGeometry(size, size, size);
-        const material = this.options.useBasicMaterial
-            ? new THREE.MeshBasicMaterial({ color: this.options.color })
-            : new THREE.MeshStandardMaterial({ color: this.options.color });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    const z = this._rand(-4, 4); // -4 to 4
-        cube.position.set(this.options.start[0], this.options.start[1], z);
-        const target = new THREE.Vector3(this.options.end[0], this.options.end[1], z);
-        const direction = new THREE.Vector3().subVectors(target, cube.position).normalize();
-        cube.userData.velocity = direction.multiplyScalar(speed);
-        cube.userData.target = target;
+    _createCube(cfg) {
+        const { start, end, speed = 0.08, color, size, scale } = cfg;
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = (this.options.useBasicMaterial
+            ? new THREE.MeshBasicMaterial({ color: cfg.color ?? this.options.color })
+            : new THREE.MeshStandardMaterial({ color: cfg.color ?? this.options.color }));
+
+        const cube = new THREE.Mesh(geometry, material);
+        cube.castShadow = true;
+        cube.receiveShadow = true;
+
+        // Size vs scale: support either a uniform size or explicit scale vector
+        if (Array.isArray(scale) && scale.length === 3) {
+            cube.scale.set(scale[0], scale[1], scale[2]);
+        } else if (typeof size === 'number') {
+            cube.scale.set(size, size, size);
+        } else {
+            cube.scale.set(1, 1, 1);
+        }
+
+        const startV = new THREE.Vector3(start[0], start[1], start[2]);
+        const endV = new THREE.Vector3(end[0], end[1], end[2]);
+        cube.position.copy(startV);
+
+        const dir = new THREE.Vector3().subVectors(endV, startV).normalize();
+        cube.userData = {
+            speed,
+            start: startV.clone(),
+            target: endV.clone(),
+            velocity: dir.multiplyScalar(speed),
+        };
+
         this.scene.add(cube);
         if (this.options.debug) {
-            // Simple console debug (can be swapped for on-screen later)
-            console.log('Spawn cube', { pos: cube.position.toArray(), speed, size });
+            console.log('Spawn cube', { start, end, speed, scale: cube.scale.toArray() });
         }
         return cube;
     }
-
-    _rand(min, max) {
-        return Math.random() * (max - min) + min;
-    }
 }
 
-
+// Optional helpers (kept for compatibility, now deterministic if passed cubeConfigs)
 export function loadFlyingCubes(scene, options = {}) {
-    const {
-        count = 10,
-        size = 1,
-        color = 0x00ff00,
-        speed = 0.05,
-        start = [-80, 7, -3.5], // default start
-        end = [-45, 7, -3.5]    // default end
-    } = options;
-
-    const cubes = [];
-    for (let i = 0; i < count; i++) {
-        const geometry = new THREE.BoxGeometry(size, size, size);
-        const material = new THREE.MeshStandardMaterial({ color });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    // Randomize Z between -4 and 4
-    const z = Math.random() * 8 - 4; // (-4..4)
-        cube.position.set(start[0], start[1], z);
-        // Target position with same Z
-        const target = new THREE.Vector3(end[0], end[1], z);
-        // Direction vector from start to end
-        const direction = new THREE.Vector3().subVectors(target, cube.position).normalize();
-        // Velocity toward target
-        cube.userData.velocity = direction.multiplyScalar(speed);
-        cube.userData.target = target;
-        scene.add(cube);
-        cubes.push(cube);
-    }
-    return cubes;
+    const spawner = new FlyingCubesSpawner(scene, options);
+    return spawner.cubes;
 }
 
-// Call this in your animation loop to update cube positions
-export function updateFlyingCubes(cubes) {
-    cubes.forEach(cube => {
-        // Move only if not past target
-        const toTarget = new THREE.Vector3().subVectors(cube.userData.target, cube.position);
-        if (toTarget.length() > cube.userData.velocity.length()) {
-            cube.position.add(cube.userData.velocity);
-        } else {
-            cube.position.copy(cube.userData.target); // Snap to target
-        }
-    });
+export function updateFlyingCubes(cubesOrSpawner, delta = 1 / 60) {
+    // Allow passing the spawner directly
+    if (cubesOrSpawner && typeof cubesOrSpawner.update === 'function') {
+        cubesOrSpawner.update(delta);
+        return;
+    }
+    // No-op fallback for old call shape
+    if (Array.isArray(cubesOrSpawner)) {
+        // Cannot move without velocity context; recommend switching to spawner usage
+    }
 }

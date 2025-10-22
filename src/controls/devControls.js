@@ -15,6 +15,11 @@ export class DevControls {
         this.controls.maxDistance = 10000;
         this.controls.maxPolarAngle = Math.PI / 2;
 
+        // Mouse sensitivity (affects rotate/zoom/pan speeds)
+        // Lower default than OrbitControls to reduce sensitivity
+        this._mouseSensitivity = this._loadMouseSensitivity() ?? 0.6; // 60% of default
+        this._applyMouseSensitivity();
+
         this.move = { forward: false, backward: false, left: false, right: false };
         this.direction = new THREE.Vector3();
         this.speed = 5;
@@ -258,6 +263,7 @@ export class DevControls {
                 near: cam.near,
                 far: cam.far,
                 target: tgt ? { x: tgt.x, y: tgt.y, z: tgt.z } : null,
+                mouseSensitivity: this._mouseSensitivity,
             };
             localStorage.setItem(this._storageKey, JSON.stringify(data));
         } catch (e) {
@@ -283,6 +289,9 @@ export class DevControls {
                 this.controls.target.set(data.target.x, data.target.y, data.target.z);
                 this.controls.update();
             }
+            if (typeof data.mouseSensitivity === 'number') {
+                this.mouseSensitivity = data.mouseSensitivity;
+            }
             return true;
         } catch (e) {
             return false;
@@ -295,5 +304,44 @@ export class DevControls {
             clearTimeout(t);
             t = setTimeout(() => fn.apply(this, args), delay);
         };
+    }
+
+    // ---- Sensitivity helpers ----
+    _applyMouseSensitivity() {
+        // Map a single sensitivity scalar to relevant OrbitControls speeds
+        // Base defaults in OrbitControls are ~1.0; we scale them down
+        const s = this._mouseSensitivity;
+        // Rotation tends to feel most sensitive; scale directly
+        this.controls.rotateSpeed = 1.0 * s;
+        // Zoom a bit less sensitive than rotate by default
+        this.controls.zoomSpeed = 0.9 * s;
+        // Pan usually fine at parity with rotate
+        this.controls.panSpeed = 1.0 * s;
+    }
+
+    _loadMouseSensitivity() {
+        try {
+            const v = localStorage.getItem('devMouseSensitivity');
+            const n = v != null ? Number(JSON.parse(v)) : NaN;
+            return isFinite(n) ? n : null;
+        } catch {
+            return null;
+        }
+    }
+
+    _saveMouseSensitivity(val) {
+        try { localStorage.setItem('devMouseSensitivity', JSON.stringify(val)); } catch {}
+    }
+
+    get mouseSensitivity() { return this._mouseSensitivity; }
+    set mouseSensitivity(v) {
+        const num = Number(v);
+        // Clamp to a reasonable range [0.1, 2.0]
+        const clamped = isFinite(num) ? Math.max(0.1, Math.min(2.0, num)) : this._mouseSensitivity;
+        if (clamped !== this._mouseSensitivity) {
+            this._mouseSensitivity = clamped;
+            this._applyMouseSensitivity();
+            this._saveMouseSensitivity(clamped);
+        }
     }
 }
