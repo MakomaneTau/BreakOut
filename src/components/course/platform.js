@@ -12,16 +12,16 @@ class platform {
 		this.ready = false;
 		this.model = null;
 		this.concreteBlocks = [
-			new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [6.5, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-36, 4.6, 3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-33, 4.6, -1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-29, 4.6, 3.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-26, 4.6, 1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-26, 4.6, 1.5], scale: [9, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-20, 4.6, -4.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-17, 4.6, 2.5], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-17, 4.6, 0], scale: [12, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-13, 4.6, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-10, 4.6, 4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-6, 4.6, 2], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-6, 4.6, 0], scale: [12, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-2.2, 4.6, -4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
 		];
 
