@@ -14,10 +14,28 @@ export class GameUI {
     this.onMainMenu = options.onMainMenu || (() => {});
     this.onToggleFullscreen = options.onToggleFullscreen || (() => {});
     this.onToggleMute = options.onToggleMute || (() => {});
+    // Minimap providers
+    // options.minimapData?: { getPlayerPosition:()=>({x,z}|null), getExtentsByFloor:()=>({1:[...],2:[...],3:[...]}) }
+    this.minimapData = options.minimapData || null;
     
     // State
     this.isMuted = false;
     this.isFullscreen = false;
+    // Minimap state
+    this._mm = {
+      container: null,
+      bg: null,
+      fg: null,
+      bgCtx: null,
+      fgCtx: null,
+      width: 154,
+      height: 154,
+      padding: 6,
+      worldBounds: null, // current selected floor bounds
+      extentsHash: '',
+      selectedFloor: 1,
+      autoFloor: true
+    };
     
     this.createUI();
     this.setupKeyboardShortcuts();
@@ -193,37 +211,70 @@ export class GameUI {
    * Create minimap placeholder
    */
   createMinimap() {
-    const minimap = document.createElement('div');
-    minimap.style.cssText = `
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `
       position: fixed;
       top: 180px;
       left: 20px;
-      width: 150px;
-      height: 150px;
+      width: 170px;
+      height: 190px;
       background: rgba(0, 0, 0, 0.7);
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-radius: 10px;
       pointer-events: auto;
       z-index: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       color: #ffffff;
       font-size: 12px;
       backdrop-filter: blur(5px);
+      box-sizing: border-box;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     `;
 
-    minimap.innerHTML = `
-      <div style="text-align: center;">
-        <div style="font-size: 24px; margin-bottom: 5px;">🗺️</div>
-        <div style="font-weight: bold;">MINIMAP</div>
-        <div style="font-size: 10px; opacity: 0.7;">Coming Soon</div>
-      </div>
-    `;
+    // Header with floor buttons
+    const header = document.createElement('div');
+    header.style.cssText = `display:flex; align-items:center; justify-content:space-between;`;
+    const title = document.createElement('div');
+    title.textContent = 'MINIMAP';
+    title.style.cssText = 'font-weight:bold; letter-spacing:0.5px; opacity:0.9;';
+    const floors = document.createElement('div');
+    floors.style.cssText = 'display:flex; gap:6px;';
+    const makeFloorBtn = (n)=>{
+      const b = document.createElement('button');
+      b.textContent = n;
+      b.style.cssText = `width:26px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-weight:700;`;
+      b.addEventListener('click',()=>{ this._mm.selectedFloor=n; this._mm.autoFloor=false; this._drawMinimapBackground(true); });
+      b.title = `Show floor ${n}`;
+      return b;
+    };
+    floors.appendChild(makeFloorBtn(1));
+    floors.appendChild(makeFloorBtn(2));
+    floors.appendChild(makeFloorBtn(3));
+    header.appendChild(title);
+    header.appendChild(floors);
 
-    minimap.title = 'Minimap - Track your progress';
-    this.minimap = minimap;
-    this.container.appendChild(minimap);
+    // Canvas stack
+    const canvasWrap = document.createElement('div');
+    canvasWrap.style.cssText = 'position:relative;width:154px;height:154px;align-self:center;';
+    const bg = document.createElement('canvas');
+    bg.width = 154; bg.height = 154; bg.style.cssText='position:absolute;left:0;top:0;';
+    const fg = document.createElement('canvas');
+    fg.width = 154; fg.height = 154; fg.style.cssText='position:absolute;left:0;top:0;';
+    canvasWrap.appendChild(bg); canvasWrap.appendChild(fg);
+
+    wrap.appendChild(header);
+    wrap.appendChild(canvasWrap);
+    wrap.title = 'Minimap - Track your progress across floors';
+    this.container.appendChild(wrap);
+
+    this._mm.container = wrap;
+    this._mm.bg = bg; this._mm.fg = fg;
+    this._mm.bgCtx = bg.getContext('2d');
+    this._mm.fgCtx = fg.getContext('2d');
+
+    this._drawMinimapBackground(true);
   }
 
   /**
@@ -339,6 +390,7 @@ export class GameUI {
             this.toggleHelpPanel();
           }
           break;
+        // Removed Ctrl+R restart shortcut to avoid accidental level resets
       }
     });
   }
@@ -412,8 +464,107 @@ export class GameUI {
    * Update UI elements (called from game loop)
    */
   update(delta) {
-    // Update any animated elements here
-    // For example, minimap updates, FPS counter, etc.
+    // Auto-select floor based on player position if enabled
+    if (this._mm.autoFloor) this._autoSelectFloor();
+    // Redraw background if extents/floor changed; always redraw player pointer
+    this._drawMinimapBackground();
+    this._drawPlayerPointer();
+  }
+
+  // ===== Minimap helpers =====
+  _getExtentsByFloor() {
+    return (this.minimapData && typeof this.minimapData.getExtentsByFloor === 'function')
+      ? (this.minimapData.getExtentsByFloor() || {})
+      : {};
+  }
+
+  _normalizeFloorData(floorData) {
+    if (!floorData) return { platforms: [], blocks: [] };
+    if (Array.isArray(floorData)) return { platforms: floorData, blocks: [] };
+    const platforms = Array.isArray(floorData.platforms) ? floorData.platforms : [];
+    const blocks = Array.isArray(floorData.blocks) ? floorData.blocks : [];
+    return { platforms, blocks };
+  }
+
+  _computeWorldBounds(extents) {
+    if (!extents || !extents.length) return null;
+    let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+    for (const e of extents) { if (!e) continue; minX=Math.min(minX,e.minX); maxX=Math.max(maxX,e.maxX); minZ=Math.min(minZ,e.minZ); maxZ=Math.max(maxZ,e.maxZ);}    
+    if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minZ) || !isFinite(maxZ)) return null;
+    const mx = (maxX-minX)*0.05 || 1; const mz=(maxZ-minZ)*0.05 || 1;
+    return {minX:minX-mx,maxX:maxX+mx,minZ:minZ-mz,maxZ:maxZ+mz};
+  }
+
+  _worldToCanvas(x,z) {
+    const mm=this._mm; if(!mm.worldBounds) return null;
+    const {minX,maxX,minZ,maxZ}=mm.worldBounds; const w=mm.width,h=mm.height,p=mm.padding;
+    const sx=(w-p*2)/(maxX-minX||1), sz=(h-p*2)/(maxZ-minZ||1);
+    return { u: p + (x-minX)*sx, v: p + (z-minZ)*sz };
+  }
+
+  _autoSelectFloor() {
+    const floors = this._getExtentsByFloor();
+    const p = this.minimapData?.getPlayerPosition?.();
+    if (!p) return;
+    for (const floorKey of Object.keys(floors)) {
+      const fd = this._normalizeFloorData(floors[floorKey]);
+      const all = [...fd.platforms, ...fd.blocks];
+      const bounds = this._computeWorldBounds(all);
+      if (!bounds) continue;
+      if (p.x >= bounds.minX && p.x <= bounds.maxX && p.z >= bounds.minZ && p.z <= bounds.maxZ) {
+        const n = parseInt(floorKey);
+        if (this._mm.selectedFloor !== n) {
+          this._mm.selectedFloor = n;
+          this._drawMinimapBackground(true);
+        }
+        return;
+      }
+    }
+  }
+
+  _drawMinimapBackground(force=false) {
+    const mm=this._mm; if(!mm.bgCtx) return;
+    const floors = this._getExtentsByFloor();
+    const fd = this._normalizeFloorData(floors[mm.selectedFloor] || []);
+    const hash = JSON.stringify({f:mm.selectedFloor,e:fd});
+    if (!force && hash === mm.extentsHash && mm.worldBounds) return;
+    mm.extentsHash = hash;
+    mm.worldBounds = this._computeWorldBounds([...(fd.platforms||[]), ...(fd.blocks||[])]);
+
+    const ctx = mm.bgCtx; ctx.clearRect(0,0,mm.width,mm.height);
+    // Background
+    ctx.fillStyle='rgba(255,255,255,0.05)'; ctx.fillRect(0,0,mm.width,mm.height);
+    ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=2; ctx.strokeRect(1,1,mm.width-2,mm.height-2);
+    // Platforms
+    if (mm.worldBounds) {
+      ctx.lineWidth=1.5;
+      // Draw platforms
+      ctx.fillStyle='rgba(78,205,196,0.35)'; ctx.strokeStyle='rgba(78,205,196,0.9)';
+      for (const e of fd.platforms) {
+        const p1=this._worldToCanvas(e.minX,e.minZ); const p2=this._worldToCanvas(e.maxX,e.maxZ); if(!p1||!p2) continue;
+        const x=Math.min(p1.u,p2.u), y=Math.min(p1.v,p2.v), w=Math.abs(p2.u-p1.u), h=Math.abs(p2.v-p1.v);
+        ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+      }
+      // Draw concrete blocks
+      ctx.fillStyle='rgba(236,236,236,0.55)'; ctx.strokeStyle='rgba(255,255,255,0.9)';
+      for (const e of fd.blocks) {
+        const p1=this._worldToCanvas(e.minX,e.minZ); const p2=this._worldToCanvas(e.maxX,e.maxZ); if(!p1||!p2) continue;
+        const x=Math.min(p1.u,p2.u), y=Math.min(p1.v,p2.v), w=Math.abs(p2.u-p1.u), h=Math.abs(p2.v-p1.v);
+        ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+      }
+    } else {
+      ctx.fillStyle='#fff'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
+      ctx.fillText('No floor data', mm.width/2, mm.height/2);
+    }
+  }
+
+  _drawPlayerPointer() {
+    const mm=this._mm; if(!mm.fgCtx || !mm.worldBounds) return;
+    const ctx=mm.fgCtx; ctx.clearRect(0,0,mm.width,mm.height);
+    const p=this.minimapData?.getPlayerPosition?.(); if(!p) return;
+    const uv=this._worldToCanvas(p.x,p.z); if(!uv) return;
+    ctx.fillStyle='rgba(255,107,107,0.95)'; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(uv.u,uv.v,4,0,Math.PI*2); ctx.fill(); ctx.stroke();
   }
 
   /**

@@ -5,7 +5,6 @@ import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
 import { CollisionManager } from './components/collision/CollisionManager.js';
 import { HealthUI } from './components/ui/HealthUI.js';
-import { CameraUI } from './components/ui/CameraUI.js';
 import { TimerUI } from './components/ui/TimerUI.js';
 import { AmbientUI } from './components/ui/AmbientUI.js';
 import { MenuUI } from './components/ui/MenuUI.js';
@@ -59,13 +58,6 @@ class App {
 
         // Initialize Health UI
         this.healthUI = new HealthUI();
-
-        // Initialize Camera UI
-        this.cameraUI = new CameraUI({
-            onCameraToggle: (isFirstPerson) => {
-                this.devControls.setCameraMode(isFirstPerson);
-            }
-        });
 
         // Initialize Timer UI
         this.timerUI = new TimerUI({
@@ -145,6 +137,54 @@ class App {
         });
 
         // Initialize Game UI
+        // Provide minimap data providers so UI can render platforms per floor and player pointer
+        const minimapData = {
+            getPlayerPosition: () => {
+                const pos = this.world?.eve?.model?.position;
+                return pos ? { x: pos.x, z: pos.z } : null;
+            },
+            getExtentsByFloor: () => {
+                const floors = { 1: { platforms: [], blocks: [] }, 2: { platforms: [], blocks: [] }, 3: { platforms: [], blocks: [] } };
+                const pushPlatform = (key, model) => {
+                    if (!model) return;
+                    try {
+                        const box = new THREE.Box3().setFromObject(model);
+                        if (isFinite(box.min.x) && isFinite(box.max.x)) {
+                            (floors[key].platforms).push({
+                                minX: box.min.x, maxX: box.max.x,
+                                minZ: box.min.z, maxZ: box.max.z,
+                            });
+                        }
+                    } catch {}
+                };
+                const pushBlocks = (key, arr) => {
+                    if (!Array.isArray(arr)) return;
+                    for (const b of arr) {
+                        const m = b?.model;
+                        if (!m) continue;
+                        try {
+                            const box = new THREE.Box3().setFromObject(m);
+                            if (isFinite(box.min.x) && isFinite(box.max.x)) {
+                                (floors[key].blocks).push({
+                                    minX: box.min.x, maxX: box.max.x,
+                                    minZ: box.min.z, maxZ: box.max.z,
+                                });
+                            }
+                        } catch {}
+                    }
+                };
+                // Floor 1 (base structure platform)
+                pushPlatform(1, this.world?.structure?.platform?.model);
+                pushBlocks(1, this.world?.structure?.platform?.concreteBlocks);
+                // Floor 2
+                pushPlatform(2, this.world?.platform_two?.model);
+                // Floor 3
+                pushPlatform(3, this.world?.platform_three?.model);
+                pushBlocks(3, this.world?.platform_three?.concreteBlocks);
+                return floors;
+            }
+        };
+
         this.gameUI = new GameUI({
             onPause: () => {
                 this.pauseGame();
@@ -163,7 +203,8 @@ class App {
             },
             onToggleMute: (isMuted) => {
                 this.toggleMute(isMuted);
-            }
+            },
+            minimapData
         });
 
         // Start with main menu visible
