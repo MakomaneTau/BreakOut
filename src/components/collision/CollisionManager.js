@@ -23,7 +23,9 @@ export class CollisionManager {
   findCollisionFor(collider) {
     for (const other of this.colliders) {
       if (other === collider) continue; // skip self
-      if (collider.intersects(other)) return other;
+      if (collider.intersects(other)) {
+        return other;
+      }
     }
     return null;
   }
@@ -186,6 +188,7 @@ export class CollisionManager {
         } else if (obstacle?.type === 'laser') {
           player.takeDamage(HealthConfig.TRAP_DAMAGE, DamageType.TRAP);
         }
+        // Note: finish_line is handled in Eve.checkDamageCollisions() to avoid damage
         
         return collider;
       }

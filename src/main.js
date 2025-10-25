@@ -1,26 +1,47 @@
 // main.js
 import { App } from './App.js';
 import { MainMenu } from './ui/mainMenu.js';
+import { GameLoader } from './ui/GameLoader.js';
 
-// Initialize the app
-const app = new App();
-
-// Setup keyboard listeners for pause menu
-app.setupKeyboardListeners();
-
-// The menu system will automatically show on startup
-// Players can start the game, access settings, and pause during gameplay
 document.addEventListener('DOMContentLoaded', () => {
     let app = null;
+    let loader = null;
 
-    // Auto-start the app directly, skipping the main menu for now
-    app = new App();
-    window.game = app;
+    const menu = new MainMenu({
+        onStart: (level = 1) => {
+            // Show loader overlay
+            loader = new GameLoader();
+            loader.show();
+            // Begin constructing the app but keep overlay until world ready
+            app = new App({ level });
+            window.game = app;
+            // Poll readiness (world + eve + structure?)
+            const startTime = performance.now();
+            const poll = () => {
+                const ready = app?.world?.ready && app?.world?.structure?.platform?.ready !== false && app?.world?.eve?.ready;
+                // progress heuristic
+                let pct = 20;
+                if (app?.world?.eve?.ready) pct += 30;
+                if (app?.world?.structure?.platform?.model) pct += 30;
+                if (app?.world?.ready) pct += 20;
+                pct = Math.min(98, pct);
+                loader.updateProgress(pct, ready ? 'Launching...' : 'Loading assets...');
+                if (ready) {
+                    loader.updateProgress(100, 'Ready');
+                    setTimeout(() => loader.hide(), 350);
+                } else {
+                    requestAnimationFrame(poll);
+                }
+            };
+            poll();
+        },
+        onHelp: () => {}
+    });
+    menu.show();
 
-    // If anything triggers 'show-main-menu', just restart the app instead of showing menu
     window.addEventListener('show-main-menu', () => {
         try { app?.destroy?.(); } catch {}
-        app = new App();
-        window.game = app;
+        app = null;
+        menu.show();
     });
 });

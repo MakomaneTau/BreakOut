@@ -7,6 +7,9 @@ export class PauseUI {
     this.isVisible = false;
     this.animationId = null;
     this.time = 0;
+    // UI audio
+    this._audioCtx = null;
+    this._uiGain = null;
     
     this.onResume = options.onResume || (() => {});
     this.onShowSettings = options.onShowSettings || (() => {});
@@ -107,6 +110,15 @@ export class PauseUI {
     
     // Keyboard listener for ESC key
     this.setupKeyboardListener();
+
+    // Unlock web audio on first gesture over the overlay
+    const unlockAudioCtx = async () => {
+      try {
+        const ctx = this._ensureAudioCtx();
+        if (ctx && ctx.state === 'suspended') await ctx.resume();
+      } catch {}
+    };
+    this.container.addEventListener('pointerdown', unlockAudioCtx, { once: false });
   }
   
   /**
@@ -143,9 +155,62 @@ export class PauseUI {
       button.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
     };
     
-    button.onclick = onClick;
+    button.onclick = (e) => {
+      // play UI click for every pause menu button
+      this._playClick();
+      onClick?.(e);
+    };
     
     return button;
+  }
+
+  // --- simple UI click using Web Audio ---
+  _ensureAudioCtx() {
+    if (!this._audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        this._audioCtx = new AC();
+        this._uiGain = this._audioCtx.createGain();
+        const master = this._loadSetting('masterVolume', 80) / 100;
+        const sfx = this._loadSetting('sfxVolume', 90) / 100;
+        this._uiGain.gain.value = Math.max(0, Math.min(1, master * sfx));
+        this._uiGain.connect(this._audioCtx.destination);
+      }
+    }
+    return this._audioCtx;
+  }
+
+  _playClick() {
+    try {
+      const ctx = this._ensureAudioCtx();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const master = this._loadSetting('masterVolume', 80) / 100;
+      const sfx = this._loadSetting('sfxVolume', 90) / 100;
+      if (this._uiGain) this._uiGain.gain.value = Math.max(0, Math.min(1, master * sfx));
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1000, now);
+      osc.frequency.exponentialRampToValueAtTime(2200, now + 0.03);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.02, master * sfx), now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(this._uiGain);
+      osc.start(now);
+      osc.stop(now + 0.1);
+      osc.onended = () => { try { osc.disconnect(); gain.disconnect(); } catch {} };
+    } catch {}
+  }
+
+  _loadSetting(key, defVal) {
+    try {
+      const saved = localStorage.getItem(`breakout_${key}`);
+      return saved ? JSON.parse(saved) : defVal;
+    } catch { return defVal; }
   }
   
   /**

@@ -11,17 +11,20 @@ export class PlayerHealth {
     this.maxLives = options.permadeath ? HealthConfig.PERMADEATH_LIVES : (options.maxLives || HealthConfig.MAX_LIVES);
     this.permadeathMode = options.permadeath || HealthConfig.PERMADEATH_MODE;
     this.checkpointsEnabled = this.permadeathMode ? false : (options.checkpointsEnabled ?? HealthConfig.CHECKPOINTS_ENABLED);
-    
+
     // Current state
     this.currentHealth = this.maxHealth;
     this.currentLives = this.maxLives;
     this.isAlive = true;
     this.isInvulnerable = false;
     this.invulnerabilityTimer = 0;
-    
+
     // Checkpoint system
     this.lastCheckpoint = options.initialPosition || { x: 0, y: 1, z: 0 };
-    
+
+    // Optional: callback to find a safe respawn position
+    this.findSafeRespawnPosition = options.findSafeRespawnPosition || null;
+
     // Callbacks
     this.onDamage = options.onDamage || null;
     this.onHeal = options.onHeal || null;
@@ -29,7 +32,7 @@ export class PlayerHealth {
     this.onRespawn = options.onRespawn || null;
     this.onGameOver = options.onGameOver || null;
     this.onLifeLost = options.onLifeLost || null;
-    
+
     // Statistics
     this.stats = {
       totalDamageTaken: 0,
@@ -37,7 +40,7 @@ export class PlayerHealth {
       deathCount: 0,
       damageByType: {},
     };
-    
+
     // Initialize damage tracking
     Object.values(DamageType).forEach(type => {
       this.stats.damageByType[type] = 0;
@@ -131,19 +134,33 @@ export class PlayerHealth {
   }
   
   /**
-   * Respawn the player at the last checkpoint
+   * Respawn the player at a safe position near the last checkpoint
    */
   respawn() {
     // Restore health
     this.currentHealth = Math.floor(this.maxHealth * HealthConfig.RESPAWN_HEALTH_PERCENTAGE);
     this.isAlive = true;
-    
+
+    // Find a safe respawn position (above ground, away from obstacles)
+    let respawnPosition = this.lastCheckpoint;
+    if (typeof this.findSafeRespawnPosition === 'function') {
+      const safePos = this.findSafeRespawnPosition(this.lastCheckpoint);
+      if (safePos) respawnPosition = safePos;
+    } else {
+      // Default: offset above checkpoint
+      respawnPosition = {
+        x: this.lastCheckpoint.x,
+        y: this.lastCheckpoint.y + 2,
+        z: this.lastCheckpoint.z
+      };
+    }
+
     // Grant temporary invulnerability
     this.setInvulnerable(HealthConfig.RESPAWN_INVULNERABILITY_DURATION);
-    
+
     // Trigger respawn callback
     if (this.onRespawn) {
-      this.onRespawn(this.lastCheckpoint, this.currentHealth, this.currentLives);
+      this.onRespawn(respawnPosition, this.currentHealth, this.currentLives);
     }
   }
   

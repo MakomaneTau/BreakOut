@@ -10,12 +10,12 @@ class wild_island {
         this.model = null;
 
         // Allow overrides for placement
-        this.position = opts.position || new THREE.Vector3(32.5, -23.1, -0);
+        this.position = opts.position || new THREE.Vector3(72.5, -67.5, -0);
         this.rotationZ = opts.rotationZ ?? Math.PI/2 ;
         this.rotationY = opts.rotationY ?? (Math.PI * 1.5);
         this.rotationX = opts.rotationX ?? (Math.PI / 2);
 
-    this.scale = opts.scale || new THREE.Vector3(1.5, 1.5, 1.5);
+    this.scale = opts.scale || new THREE.Vector3(4, 4, 4);
 
     // Stacking controls: create the illusion of thicker Y by duplicating layers downwards
     this.stackLayers = Math.max(1, opts.stackLayers || 1); // number of copies including the original
