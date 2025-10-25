@@ -87,7 +87,8 @@ class Eve {
     loader.setDRACOLoader(dracoLoader);
 
     loader.load(
-      'EveWorking.glb',
+      // 'EveWorking.glb',
+      'workingDummy.glb',
       gltf => {
         // Basic transform
         gltf.scene.scale.set(1.5, 1.5, 1.5);
