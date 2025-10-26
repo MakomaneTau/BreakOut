@@ -20,7 +20,7 @@ class stairs {
 			gltf => {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
 				gltf.scene.scale.set(0.05, 2, 0.03); // Adjust scale as needed
-				gltf.scene.position.set(0.5, -8.0, 0.4); // Adjust position as needed
+				gltf.scene.position.set(0.55, -8.6, 0.4); // Adjust position as needed
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
