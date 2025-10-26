@@ -64,6 +64,24 @@ class App {
             }
         });
 
+        // Toggle doors with "E"
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyE') {
+                if (this.world?.prison?.doors) {
+                    this.world.prison.doors.forEach((door) => {
+                        if (door.userData.isOpen) {
+                            door.rotation.y = door.userData.closedRotationY;
+                            door.userData.isOpen = false;
+                        } else {
+                            door.rotation.y = door.userData.closedRotationY + Math.PI / 2; // open
+                            door.userData.isOpen = true;
+                        }
+                    });
+                }
+            }
+        });
+
+
 
         this.setEnvironment();
         this.load();
