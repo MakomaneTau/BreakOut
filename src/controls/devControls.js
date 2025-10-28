@@ -15,15 +15,27 @@ export class DevControls {
         this.controls.maxDistance = 10000;
         this.controls.maxPolarAngle = Math.PI / 2;
 
+        // Mouse sensitivity (affects rotate/zoom/pan speeds)
+        // Lower default than OrbitControls to reduce sensitivity
+        this._mouseSensitivity = this._loadMouseSensitivity() ?? 0.6; // 60% of default
+        this._applyMouseSensitivity();
+
         this.move = { forward: false, backward: false, left: false, right: false };
         this.direction = new THREE.Vector3();
         this.speed = 5;
-        
+
         // Camera view movement
         this.isFirstPerson = false; // Start with third-person
-        this.thirdPersonOffset = new THREE.Vector3(0, 1, -5); // offset for third-person view
+        // Third-person spherical style offset (side = x, up = y, back = z)
+        this.thirdPersonOffset = new THREE.Vector3(0, 1, -5); // default
+        this.minDistance = 1.5;
+        this.maxDistance = 15;
+        this.zoomSpeed = 0.6;
         this.targetObject = null; // Will be set to the character
         this.targetPosition = new THREE.Vector3();
+        this.headOffset = new THREE.Vector3(0, 1.3, 0); // approximate head height for look target
+        this.eyeOffset = new THREE.Vector3(0, 1.6, 0);  // eye level for first-person
+        this.followSmoothing = 0.12; // lerp factor for third-person follow
 
         this._addListeners();
 
@@ -57,6 +69,17 @@ export class DevControls {
                 case 'KeyD': this.move.right = false; break;
             }
         });
+
+        // Scroll wheel: adjust third-person distance (only when in third-person)
+        window.addEventListener('wheel', (e) => {
+            if (this.isFirstPerson) return;
+            const delta = Math.sign(e.deltaY) * this.zoomSpeed;
+            // Modify only Z component (distance back). Keep negative (behind)
+            let currentDist = Math.abs(this.thirdPersonOffset.z);
+            currentDist += delta;
+            currentDist = THREE.MathUtils.clamp(currentDist, this.minDistance, this.maxDistance);
+            this.thirdPersonOffset.z = -currentDist;
+        }, { passive: true });
     }
 
     /**
@@ -84,11 +107,32 @@ export class DevControls {
         this._updateCameraPosition(true);
     }
 
+    /**
+     * Configure third-person camera offset using intuitive params.
+     * @param {Object} opts
+     * @param {number} [opts.distance] Backwards distance from player (horizontal plane)
+     * @param {number} [opts.height]   Height above player
+     * @param {number} [opts.side]     Lateral offset (positive = right of player)
+     * @param {number} [opts.smoothing] Lerp factor (0-1) for follow
+     */
+    setThirdPersonCamera(opts = {}) {
+        const { distance, height, side, smoothing } = opts;
+        if (typeof distance === 'number') {
+            const d = THREE.MathUtils.clamp(distance, this.minDistance, this.maxDistance);
+            this.thirdPersonOffset.z = -Math.abs(d);
+        }
+        if (typeof height === 'number') this.thirdPersonOffset.y = height;
+        if (typeof side === 'number') this.thirdPersonOffset.x = side;
+        if (typeof smoothing === 'number') this.followSmoothing = THREE.MathUtils.clamp(smoothing, 0.01, 1);
+        // Immediately snap if desired
+        this._updateCameraPosition(true);
+    }
+
     _updateCameraPosition(immediate = false) {
         if (!this.targetObject) return;
-        
+
         const targetPos = this.targetObject.position.clone();
-        
+
         if (this.isFirstPerson) {
             // First-person: position camera at character's eye level
             const eyeHeight = 1.6; // height from base of character to "eyes"
@@ -128,10 +172,41 @@ export class DevControls {
             this._saveCameraStateDebounced();
         }
 
-        if (!this.isFirstPerson) {
-    // smooth lerp to third-person
-            this.camera.position.lerp(this.targetPosition, 0.1);
+        // --- FOLLOW LOGIC ---
+        if (this.targetObject) {
+            if (this.isFirstPerson) {
+                // Position camera at eye level
+                const desiredFP = this.targetObject.position.clone().add(this.eyeOffset);
+                this.camera.position.lerp(desiredFP, 0.35); // a bit quicker for responsiveness
+
+                // Copy horizontal rotation from targetObject (assumes Y-up)
+                // If the target rotates only on Y axis this is enough; otherwise slerp full quaternion.
+                this.camera.quaternion.slerp(this.targetObject.quaternion, 0.25);
+
+                // Disable orbit rotation so user doesn't fight first-person orientation
+                this.controls.enableRotate = false;
+                // Keep controls target slightly ahead so damping still works for any dependent features
+                const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.camera.quaternion);
+                const lookAhead = this.camera.position.clone().add(forward.multiplyScalar(2));
+                this.controls.target.lerp(lookAhead, 0.5);
+            } else {
+                // Recompute desired third-person position every frame (so we actually follow movement)
+                const offset = this.thirdPersonOffset.clone().applyQuaternion(this.targetObject.quaternion);
+                const desiredTP = this.targetObject.position.clone().add(offset);
+                // Smooth follow
+                this.camera.position.lerp(desiredTP, this.followSmoothing);
+
+                // Look at (or orbit around) the character's head
+                const desiredTarget = this.targetObject.position.clone().add(this.headOffset);
+                this.controls.target.lerp(desiredTarget, 0.25);
+                this.controls.enableRotate = true; // allow user to orbit slightly if desired
+            }
+
+            // Basic ground clamp (avoid dipping below y = -1)
+            if (this.camera.position.y < -1) this.camera.position.y = -1;
         }
+
+        // If no target object we just allow free-fly/orbit
 
         this.controls.update();
     }
@@ -188,6 +263,7 @@ export class DevControls {
                 near: cam.near,
                 far: cam.far,
                 target: tgt ? { x: tgt.x, y: tgt.y, z: tgt.z } : null,
+                mouseSensitivity: this._mouseSensitivity,
             };
             localStorage.setItem(this._storageKey, JSON.stringify(data));
         } catch (e) {
@@ -213,6 +289,9 @@ export class DevControls {
                 this.controls.target.set(data.target.x, data.target.y, data.target.z);
                 this.controls.update();
             }
+            if (typeof data.mouseSensitivity === 'number') {
+                this.mouseSensitivity = data.mouseSensitivity;
+            }
             return true;
         } catch (e) {
             return false;
@@ -225,5 +304,44 @@ export class DevControls {
             clearTimeout(t);
             t = setTimeout(() => fn.apply(this, args), delay);
         };
+    }
+
+    // ---- Sensitivity helpers ----
+    _applyMouseSensitivity() {
+        // Map a single sensitivity scalar to relevant OrbitControls speeds
+        // Base defaults in OrbitControls are ~1.0; we scale them down
+        const s = this._mouseSensitivity;
+        // Rotation tends to feel most sensitive; scale directly
+        this.controls.rotateSpeed = 1.0 * s;
+        // Zoom a bit less sensitive than rotate by default
+        this.controls.zoomSpeed = 0.9 * s;
+        // Pan usually fine at parity with rotate
+        this.controls.panSpeed = 1.0 * s;
+    }
+
+    _loadMouseSensitivity() {
+        try {
+            const v = localStorage.getItem('devMouseSensitivity');
+            const n = v != null ? Number(JSON.parse(v)) : NaN;
+            return isFinite(n) ? n : null;
+        } catch {
+            return null;
+        }
+    }
+
+    _saveMouseSensitivity(val) {
+        try { localStorage.setItem('devMouseSensitivity', JSON.stringify(val)); } catch {}
+    }
+
+    get mouseSensitivity() { return this._mouseSensitivity; }
+    set mouseSensitivity(v) {
+        const num = Number(v);
+        // Clamp to a reasonable range [0.1, 2.0]
+        const clamped = isFinite(num) ? Math.max(0.1, Math.min(2.0, num)) : this._mouseSensitivity;
+        if (clamped !== this._mouseSensitivity) {
+            this._mouseSensitivity = clamped;
+            this._applyMouseSensitivity();
+            this._saveMouseSensitivity(clamped);
+        }
     }
 }

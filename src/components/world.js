@@ -4,9 +4,13 @@ import { Vector3 } from '../../public/libs/three137/three.module.js';
 import { Prison } from './prison.js';
 import { Eve } from './Eve.js';
 import { stairs } from './stairs.js';
-import { platform } from './course/platform.js';
 import { CollisionManager } from './collision/CollisionManager.js';
 import { concrete_blocks } from './course/concrete_blocks.js';
+import { Structure } from './structure.js';
+import { ocean } from './location/ocean.js';
+import { wild_island } from './location/wild_island.js';
+import { platform as platform_two } from './course_two/platform.js';
+import { platform as platform_three } from './course_three/platform.js';
 
 class World {
     loadSkybox() {
@@ -21,55 +25,90 @@ class World {
                 'nz.jpg'
             ]);
     }
-    constructor(game) {
+
+    constructor(game, opts = {}) {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
         this.collisionManager = game.collisionManager || new CollisionManager();
         this.wallColliders = [];
+        this.level = Math.max(1, Math.min(3, parseInt(opts.level || game.level || 1)));
 
         this.tmpPos = new Vector3();
         this.ready = false;
 
-        this.prison = new Prison(game);
-        this.eve = new Eve(game);
-        this.stairs = new stairs(game);
-        this.platform = new platform(game);
+        // Unified structure containing prison, stairs, and platform
+        this.structure = new Structure(game, {
+            // You can change the overall position/rotation/scale here
+            // position: new THREE.Vector3(0, 0, 0),
+            //rotation: new THREE.Euler(Math.PI, -Math.PI / 100, Math.PI),
+            // scale: new THREE.Vector3(1, 1, 1)
+        });
+        // Defer Eve creation until structure components likely loaded
+        this.eve = null;
+        // Optional locations
+        // this.ocean = new ocean(game);
+        // Conditionally create additional courses based on level
+        this.platform_two = this.level >= 2 ? new platform_two(game) : null;
+        this.platform_three = this.level >= 3 ? new platform_three(game) : null;
+        // this.ocean = new ocean(game);
+        this.wildIsland = new wild_island(game);
 
         this.load();
+        
+        // Schedule Eve load after structure assembly
+        this._eveLoadCheck();
+    }
+
+    connectCharacterToHelicopter() {
+        if (this.eve && this.structure && this.structure.platform && this.structure.platform.helicopter) {
+            this.eve.setHelicopter(this.structure.platform.helicopter);
+            console.log('🚁 Character connected to helicopter for escape sequence');
+        } else {
+            console.warn('Could not connect character to helicopter - components not ready');
+        }
     }
 
     load() {
-        const loader = new GLTFLoader().setPath(`${this.assetsPath}models/road/`);
+        // No longer loading the road model; just set the environment and mark ready.
+        this.loadSkybox();
+                
+        // Register prison walls as colliders after everything loads
+        this.registerPrisonWalls();
+        
+        // Register platform obstacles as colliders after everything loads
+        this.registerPlatformObstacles();
+        this.ready = true;
+    }
 
-        loader.load(
-            'scene.gltf',
-            gltf => {
-                // Adjust model size here
-                gltf.scene.scale.set(0.5, 0.5, 0.5); // Example: scale to half size
-                gltf.scene.position.set(-5, -5, -5); // Example: position at origin
-                this.scene.add(gltf.scene);
-                this.model = gltf.scene;
-                this.ready = true;
-                // Load skybox for a big scene
-                this.loadSkybox();
-                
-                // Register prison walls as colliders after everything loads
-                this.registerPrisonWalls();
-                
-                // Register platform obstacles as colliders after everything loads
-                this.registerPlatformObstacles();
-            },
-            xhr => this.loadingBar.update('world', xhr.loaded, xhr.total),
-            err => console.error(err)
-        );
+    _eveLoadCheck(retries = 0) {
+        const maxRetries = 20; // ~10s if interval 500ms
+        const delay = 500;
+        const platformReady = this.structure?.platform?.model;
+        const prisonReady = this.structure?.prison?.model;
+        const stairsReady = this.structure?.stairs?.model;
+        if (!this.eve && (platformReady || prisonReady || stairsReady)) {
+            // Instantiate Eve now
+            this.eve = new Eve({
+                assetsPath: this.assetsPath,
+                loadingBar: this.loadingBar,
+                scene: this.scene,
+                collisionManager: this.collisionManager
+            });
+            // Connect to helicopter if appears later
+            setTimeout(() => this.connectCharacterToHelicopter(), 1500);
+            return;
+        }
+        if (!this.eve && retries < maxRetries) {
+            setTimeout(() => this._eveLoadCheck(retries + 1), delay);
+        }
     }
 
     registerPrisonWalls() {
         // Wait a bit for prison to load, then register walls
         setTimeout(() => {
-            if (this.prison && this.prison.model) {
-                this.wallColliders = this.collisionManager.registerWallsFromModel(this.prison.model);
+            if (this.structure && this.structure.prison && this.structure.prison.model) {
+                this.wallColliders = this.collisionManager.registerWallsFromModel(this.structure.prison.model);
             }
         }, 1000);
     }
@@ -77,8 +116,27 @@ class World {
     registerPlatformObstacles() {
         // Wait a bit for platform obstacles to load, then register them
         setTimeout(() => {
-            if (this.platform) {
-                this.platform.registerObstaclesWithCollision();
+            if (this.structure && this.structure.platform) {
+                // Some builds define a helper on platform; otherwise use CollisionManager fallback
+                if (typeof this.structure.platform.registerObstaclesWithCollision === 'function') {
+                    this.structure.platform.registerObstaclesWithCollision();
+                } else if (this.collisionManager?.registerPlatformObstacles) {
+                    this.collisionManager.registerPlatformObstacles(this.structure.platform);
+                }
+            }
+            if (this.level >= 2 && this.platform_two) {
+                if (typeof this.platform_two.registerObstaclesWithCollision === 'function') {
+                    this.platform_two.registerObstaclesWithCollision();
+                } else if (this.collisionManager?.registerPlatformObstacles) {
+                    this.collisionManager.registerPlatformObstacles(this.platform_two);
+                }
+            }
+            if (this.level >= 3 && this.platform_three) {
+                if (typeof this.platform_three.registerObstaclesWithCollision === 'function') {
+                    this.platform_three.registerObstaclesWithCollision();
+                } else if (this.collisionManager?.registerPlatformObstacles) {
+                    this.collisionManager.registerPlatformObstacles(this.platform_three);
+                }
             }
         }, 1500); // Slightly longer delay to ensure all obstacles are loaded
     }
@@ -88,9 +146,12 @@ class World {
         if (!this.ready) return;
         // Example animation
         //this.model.rotation.y += delta * 0.2;
-        if (this.prison) this.prison.update(time, delta);
-        if (this.stairs) this.stairs.update(time, delta);
-        if (this.platform) this.platform.update(time, delta);
+        if (this.structure) this.structure.update(time, delta);
+        //if (this.ocean) this.ocean.update(time, delta);
+    if (this.wildIsland) this.wildIsland.update(time, delta);
+    if (this.level >= 2 && this.platform_two) this.platform_two.update(time, delta);
+    if (this.level >= 3 && this.platform_three) this.platform_three.update(time, delta);
+
 
         if (this.eve) this.eve.update(time, delta);
     }
