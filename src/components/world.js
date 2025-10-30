@@ -131,8 +131,8 @@ class World {
                 platform_three: this.platform_three
             };
             
-            // Try to register obstacles if not already started
-            if (this.collisionManager && !this.collisionManager.registrationStarted) {
+            // Try to register obstacles until registration completes
+            if (this.collisionManager && !this.collisionManager.isRegistrationComplete()) {
                 console.log(`🔄 World: Attempting obstacle registration (attempt ${attempts})...`);
                 this.collisionManager.registerObstaclesForLevel(platforms);
             }
