@@ -6,7 +6,8 @@ export class CollisionManager {
   constructor(level = 1) {
     this.colliders = [];
     this.level = level; // Store current game level
-    this.registeredDynamicObstacles = new WeakMap(); // Track dynamic obstacles (cubes, spawned lasers)
+    this.meshToCollider = new WeakMap(); // Track meshes to avoid duplicate colliders
+    this.registeredDynamicObstacles = new Map(); // Track dynamic obstacles (cubes, spawned lasers)
     
     // Obstacle registration tracking
     this.expectedObstacleCount = 0;
@@ -19,14 +20,31 @@ export class CollisionManager {
 
   // Add a new collider
   add(mesh, type = 'box') {
+    if (!mesh) return null;
+
+    const existing = this.meshToCollider.get(mesh);
+    if (existing) {
+      return existing;
+    }
+
     const collider = new Collider(mesh, type);
     this.colliders.push(collider);
+    this.meshToCollider.set(mesh, collider);
     return collider;
   }
 
   // Remove a collider
   remove(collider) {
+    if (!collider) return;
     this.colliders = this.colliders.filter(c => c !== collider);
+    if (collider.mesh) {
+      this.meshToCollider.delete(collider.mesh);
+    }
+  }
+
+  // Check if we already track a collider for this mesh
+  hasCollider(mesh) {
+    return !!(mesh && this.meshToCollider.get(mesh));
   }
 
   // Check if a collider intersects any other collider
@@ -70,6 +88,10 @@ export class CollisionManager {
       platform.concreteBlocks.forEach((block, index) => {
         console.log(`[${platformName}] Concrete block ${index}: ready=${block.ready}, hasModel=${!!block.model}, name=${block._name}`);
         if (block.ready && block.model) {
+          if (this.hasCollider(block.model)) {
+            console.log(`[${platformName}] ▶ Already registered concrete block collider: ${block._name}`);
+            return;
+          }
           const collider = this.add(block.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
@@ -87,6 +109,10 @@ export class CollisionManager {
     if (platform.spinningBlades) {
       platform.spinningBlades.forEach(blade => {
         if (blade.ready && blade.model) {
+          if (this.hasCollider(blade.model)) {
+            console.log(`[${platformName}] ▶ Already registered spinning blade collider: ${blade._name}`);
+            return;
+          }
           const collider = this.add(blade.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
@@ -104,6 +130,10 @@ export class CollisionManager {
     if (platform.laserBarriers) {
       platform.laserBarriers.forEach(barrier => {
         if (barrier.ready && barrier.model) {
+          if (this.hasCollider(barrier.model)) {
+            console.log(`[${platformName}] ▶ Already registered laser barrier collider: ${barrier._name}`);
+            return;
+          }
           const collider = this.add(barrier.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
@@ -248,18 +278,21 @@ export class CollisionManager {
    * @param {Object} platforms - Object containing structure, platform_two, platform_three
    */
   registerObstaclesForLevel(platforms) {
-    if (this.registrationStarted) {
-      console.log('⚠️ Obstacle registration already in progress');
+    if (!platforms) return;
+
+    if (!this.registrationStarted) {
+      this.registrationStarted = true;
+      console.log(`🚀 Starting obstacle registration for level ${this.level}...`);
+
+      // Calculate expected obstacle count
+      this.expectedObstacleCount = this._calculateExpectedObstacles(platforms);
+      console.log(`📊 Expected obstacles: ${this.expectedObstacleCount}`);
+    } else if (this.registrationComplete) {
       return;
+    } else {
+      console.log(`🔁 Continuing obstacle registration for level ${this.level}...`);
     }
-    
-    this.registrationStarted = true;
-    console.log(`🚀 Starting obstacle registration for level ${this.level}...`);
-    
-    // Calculate expected obstacle count
-    this.expectedObstacleCount = this._calculateExpectedObstacles(platforms);
-    console.log(`📊 Expected obstacles: ${this.expectedObstacleCount}`);
-    
+
     // Always register Level 1 obstacles (structure.platform)
     if (platforms.structure && platforms.structure.platform) {
       console.log('📍 Registering Level 1 obstacles...');
@@ -305,7 +338,7 @@ export class CollisionManager {
     if (!spawner || !spawner.cubes) return;
     
     spawner.cubes.forEach(cube => {
-      this.registerDynamicObstacle(cube, 'flying_cube');
+      this.registerDynamicObstacle(cube, 'flying_cube', spawner);
     });
     
     console.log(`Registered ${spawner.cubes.length} flying cubes`);
@@ -319,7 +352,7 @@ export class CollisionManager {
     if (!spawner || !spawner.barriers) return;
     
     spawner.barriers.forEach(barrier => {
-      this.registerDynamicObstacle(barrier, 'laser');
+      this.registerDynamicObstacle(barrier, 'laser', spawner);
     });
     
     console.log(`Registered ${spawner.barriers.length} dynamic laser barriers`);
@@ -331,23 +364,25 @@ export class CollisionManager {
    * @param {string} type - The obstacle type
    * @returns {Collider|null} The created collider or null if already registered
    */
-  registerDynamicObstacle(obstacle, type) {
+  registerDynamicObstacle(obstacle, type, source = null) {
     if (!obstacle) return null;
     
     // Check if already registered
     if (this.registeredDynamicObstacles.has(obstacle)) {
-      return this.registeredDynamicObstacles.get(obstacle);
+      const entry = this.registeredDynamicObstacles.get(obstacle);
+      return entry?.collider || null;
     }
     
     // Ensure userData.type is set
     if (!obstacle.userData) obstacle.userData = {};
     if (!obstacle.userData.type) obstacle.userData.type = type;
+    obstacle.visible = true;
     
     // Create collider
     const collider = this.add(obstacle, 'box');
     
-    // Store in WeakMap
-    this.registeredDynamicObstacles.set(obstacle, collider);
+    // Store in Map with metadata
+    this.registeredDynamicObstacles.set(obstacle, { collider, type, source });
     
     return collider;
   }
@@ -362,7 +397,8 @@ export class CollisionManager {
       return false;
     }
     
-    const collider = this.registeredDynamicObstacles.get(obstacle);
+    const entry = this.registeredDynamicObstacles.get(obstacle);
+    const collider = entry?.collider;
     
     // Remove from colliders array
     this.remove(collider);
@@ -405,7 +441,7 @@ export class CollisionManager {
     // Register any new cubes that aren't tracked yet
     spawner.cubes.forEach(cube => {
       if (!this.registeredDynamicObstacles.has(cube)) {
-        this.registerDynamicObstacle(cube, 'flying_cube');
+        this.registerDynamicObstacle(cube, 'flying_cube', spawner);
       }
     });
     
@@ -427,14 +463,19 @@ export class CollisionManager {
     // Register any new barriers
     spawner.barriers.forEach(barrier => {
       if (!this.registeredDynamicObstacles.has(barrier)) {
-        this.registerDynamicObstacle(barrier, 'laser');
+        this.registerDynamicObstacle(barrier, 'laser', spawner);
       }
     });
     
     // Remove barriers that no longer exist in spawner
-    // We need to check all our registered obstacles to find removed ones
-    // Since WeakMap doesn't support iteration, we'll rely on the spawner's cleanup
-    // and the collider system will naturally ignore removed objects
+    const toRemove = [];
+    for (const [obstacle, entry] of this.registeredDynamicObstacles.entries()) {
+      if (entry.type === 'laser' && entry.source === spawner && !currentBarriers.has(obstacle)) {
+        toRemove.push(obstacle);
+      }
+    }
+
+    toRemove.forEach(obstacle => this.unregisterDynamicObstacle(obstacle));
   }
 
   /**
@@ -473,7 +514,8 @@ export class CollisionManager {
    */
   clearAllColliders() {
     this.colliders = [];
-    this.registeredDynamicObstacles = new WeakMap();
+    this.meshToCollider = new WeakMap();
+    this.registeredDynamicObstacles = new Map();
     this.registeredObstacleCount = 0;
     this.expectedObstacleCount = 0;
     this.registrationComplete = false;
