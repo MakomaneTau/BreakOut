@@ -203,7 +203,7 @@ export class DevControls {
             }
 
             // Basic ground clamp (avoid dipping below y = -1)
-            if (this.camera.position.y < -1) this.camera.position.y = -1;
+           // if (this.camera.position.y < -1) this.camera.position.y = -1;
         }
 
         // If no target object we just allow free-fly/orbit

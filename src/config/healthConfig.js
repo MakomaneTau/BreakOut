@@ -27,6 +27,7 @@ export const HealthConfig = {
   // Respawn settings
   RESPAWN_INVULNERABILITY_DURATION: 2.0, // seconds
   RESPAWN_HEALTH_PERCENTAGE: 1.0, // 100% health on respawn
+  DAMAGE_COOLDOWN_DURATION: 0.5, // seconds - prevent rapid damage from same source
   
   // UI settings
   DAMAGE_FLASH_DURATION: 0.3, // seconds

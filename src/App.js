@@ -636,46 +636,56 @@ class App {
             // Set target object for camera controls
             const eve = this.world.eve;
             if (eve && eve.model) this.devControls.setTargetObject(eve.model);
-            // if (eve && eve.model) {
-            //     this.devControls.setTargetObject(eve.model);
+            //starts here
+            
+             if (eve && eve.model) {
+                 this.devControls.setTargetObject(eve.model);
 
-            //     // Only use third-person camera following if not in first-person mode
-            //     if (!this.devControls.isFirstPerson) {
-            //         // Third-person camera following code (existing code)
-            //         const distance = 6.0;         
-            //         const heightOffset = 7.0;     
-            //         const angleInRadians = Math.PI / 4; 
-            //         const lookAtHeight = 1.0;     
+                 // Only use third-person camera following if not in first-person mode
+                 if (!this.devControls.isFirstPerson) {
+                     // Third-person camera following code (existing code)
+                     const distance = 6.0;         
+                     const heightOffset = 7.0;     
+                     const angleInRadians = Math.PI / 4; 
+                     const lookAtHeight = 1.0;     
 
-            //         const forward = new THREE.Vector3(0, 0, 1)
-            //             .applyQuaternion(eve.model.quaternion)
-            //             .setY(0)
-            //             .normalize();
+                     const forward = new THREE.Vector3(0, 0, 1)
+                         .applyQuaternion(eve.model.quaternion)
+                         .setY(0)
+                         .normalize();
 
-            //         const targetPos = new THREE.Vector3().copy(eve.model.position);
-            //         targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
-            //         targetPos.y += heightOffset * Math.sin(angleInRadians);
+                     const targetPos = new THREE.Vector3().copy(eve.model.position);
+                     targetPos.addScaledVector(forward, -distance * Math.cos(angleInRadians));
+                     targetPos.y += heightOffset * Math.sin(angleInRadians);
 
-            //         const smooth = 0.1;
-            //         this.camera.position.lerp(targetPos, smooth);
+                     let smooth = 0.1;
+                     if (distance > 5) {
+                        smooth = 0.3;   // camera catches up faster
+                        } else if (distance > 2) {
+                             smooth = 0.2;
+                        }
+                     this.camera.position.lerp(targetPos, smooth);
+                     
 
-            //         const lookAt = new THREE.Vector3().copy(eve.model.position);
-            //         lookAt.addScaledVector(forward, 10);
-            //         lookAt.y += lookAtHeight;
-            //         this.camera.lookAt(lookAt);
-            //     } else {
-            //         // First-person: camera follows character's rotation but faces forward
-            //         this.camera.position.copy(eve.model.position);
-            //         this.camera.position.y += 1.6; // Eye height
+                     const lookAt = new THREE.Vector3().copy(eve.model.position);
+                     lookAt.addScaledVector(forward, 10);
+                     lookAt.y += lookAtHeight;
+                     this.camera.lookAt(lookAt);
+                 } else {
+                     // First-person: camera follows character's rotation but faces forward
+                     this.camera.position.copy(eve.model.position);
+                     this.camera.position.y += 1.6; // Eye height
 
-            //         // Copy character's rotation but flip it 180 degrees to face forward
-            //         const cameraQuaternion = eve.model.quaternion.clone();
-            //         const flipRotation = new THREE.Quaternion();
-            //         flipRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // 180 degrees around Y
-            //         cameraQuaternion.multiply(flipRotation);
-            //         this.camera.quaternion.copy(cameraQuaternion);
-            //     }
-            // }
+                     // Copy character's rotation but flip it 180 degrees to face forward
+                     const cameraQuaternion = eve.model.quaternion.clone();
+                     const flipRotation = new THREE.Quaternion();
+                     flipRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // 180 degrees around Y
+                     cameraQuaternion.multiply(flipRotation);
+                     this.camera.quaternion.copy(cameraQuaternion);
+                 }
+             }
+
+            //ends here
         }
 
         // Always render the scene

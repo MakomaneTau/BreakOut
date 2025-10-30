@@ -67,6 +67,9 @@ export class PlayerHealth {
     this.stats.totalDamageTaken += actualDamage;
     this.stats.damageByType[damageType] = (this.stats.damageByType[damageType] || 0) + actualDamage;
     
+    // Grant brief invulnerability to prevent rapid consecutive damage
+    this.setInvulnerable(HealthConfig.DAMAGE_COOLDOWN_DURATION);
+    
     // Trigger damage callback
     if (this.onDamage) {
       this.onDamage(actualDamage, this.currentHealth, this.maxHealth, damageType);

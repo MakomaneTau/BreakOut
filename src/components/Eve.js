@@ -363,23 +363,34 @@ class Eve {
   checkCollisionAtPosition(testPosition) {
     if (!this.collider || !this.collisionManager) return false;
 
+    // Temporarily move player collider to test position
     const originalPos = this.collider.mesh.position.clone();
     this.collider.mesh.position.copy(testPosition);
     if (typeof this.collider.update === 'function') this.collider.update();
 
+    // Check for collision at test position
     const collision = this.collisionManager.findCollisionFor(this.collider);
 
+    // Restore original position
     this.collider.mesh.position.copy(originalPos);
     this.collider.update();
 
+    // Handle collision result
     if (collision) {
-      // finish line special case
+      // finish line special case - allow passing through
       if (collision.mesh.userData?.type === 'finish_line') {
         return false;
       }
+      
+      // Apply damage but block movement
       this.handleCollisionDamage(collision);
+      
+      // Return true to block movement
+      return true;
     }
-    return collision !== null;
+    
+    // No collision - allow movement
+    return false;
   }
 
   onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
@@ -463,6 +474,10 @@ class Eve {
         damage = HealthConfig.TRAP_DAMAGE;
         damageType = DamageType.TRAP;
         break;
+      case 'flying_cube':
+        damage = HealthConfig.OBSTACLE_DAMAGE;
+        damageType = DamageType.OBSTACLE;
+        break;
       default:
         const name = mesh.name.toLowerCase();
         if (name.includes('blade') || name.includes('spinning')) {
@@ -471,6 +486,9 @@ class Eve {
         } else if (name.includes('laser')) {
           damage = HealthConfig.TRAP_DAMAGE;
           damageType = DamageType.TRAP;
+        } else if (name.includes('cube')) {
+          damage = HealthConfig.OBSTACLE_DAMAGE;
+          damageType = DamageType.OBSTACLE;
         }
         break;
     }
