@@ -36,6 +36,8 @@ class World {
 
         this.tmpPos = new Vector3();
         this.ready = false;
+        this.obstaclesReady = false;
+        this._obstacleRegistrationInterval = null;
 
         // Unified structure containing prison, stairs, and platform
         this.structure = new Structure(game, {
@@ -114,9 +116,13 @@ class World {
     }
 
     registerPlatformObstacles() {
-        // Wait for platform obstacles to load, then register them using level-aware system
-        setTimeout(() => {
-            console.log(`World: Registering obstacles for level ${this.level}...`);
+        // Start polling for obstacle registration
+        let attempts = 0;
+        const maxAttempts = 50; // ~25 seconds max
+        const pollInterval = 500; // Check every 500ms
+        
+        this._obstacleRegistrationInterval = setInterval(() => {
+            attempts++;
             
             // Gather all platform references
             const platforms = {
@@ -125,14 +131,37 @@ class World {
                 platform_three: this.platform_three
             };
             
-            // Use new level-aware registration
-            if (this.collisionManager && this.collisionManager.registerObstaclesForLevel) {
+            // Try to register obstacles if not already started
+            if (this.collisionManager && !this.collisionManager.registrationStarted) {
+                console.log(`🔄 World: Attempting obstacle registration (attempt ${attempts})...`);
                 this.collisionManager.registerObstaclesForLevel(platforms);
-                console.log(`World: Obstacle registration complete. Total colliders: ${this.collisionManager.getColliderCount()}`);
-            } else {
-                console.error('CollisionManager.registerObstaclesForLevel not available');
             }
-        }, 1500); // Delay to ensure all obstacles are loaded
+            
+            // Check if registration is complete
+            if (this.collisionManager && this.collisionManager.isRegistrationComplete()) {
+                this.obstaclesReady = true;
+                clearInterval(this._obstacleRegistrationInterval);
+                this._obstacleRegistrationInterval = null;
+                console.log(`✅ World: All obstacles registered and ready! Total colliders: ${this.collisionManager.getColliderCount()}`);
+            } else if (this.collisionManager && this.collisionManager.registrationStarted) {
+                // Log progress
+                const status = this.collisionManager.getRegistrationStatus();
+                console.log(`⏳ World: Obstacle registration in progress... ${status.registered}/${status.expected} (${Math.round(status.progress * 100)}%)`);
+            }
+            
+            // Stop if max attempts reached
+            if (attempts >= maxAttempts) {
+                clearInterval(this._obstacleRegistrationInterval);
+                this._obstacleRegistrationInterval = null;
+                console.warn(`⚠️ World: Max registration attempts reached. Some obstacles may not be loaded.`);
+                if (this.collisionManager) {
+                    const status = this.collisionManager.getRegistrationStatus();
+                    console.warn(`Final status: ${status.registered}/${status.expected} obstacles registered`);
+                }
+                // Mark as ready anyway to prevent infinite wait
+                this.obstaclesReady = true;
+            }
+        }, pollInterval);
     }
 
  

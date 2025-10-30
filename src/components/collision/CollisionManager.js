@@ -7,6 +7,13 @@ export class CollisionManager {
     this.colliders = [];
     this.level = level; // Store current game level
     this.registeredDynamicObstacles = new WeakMap(); // Track dynamic obstacles (cubes, spawned lasers)
+    
+    // Obstacle registration tracking
+    this.expectedObstacleCount = 0;
+    this.registeredObstacleCount = 0;
+    this.registrationComplete = false;
+    this.registrationStarted = false;
+    
     console.log(`CollisionManager initialized for level ${this.level}`);
   }
 
@@ -49,28 +56,29 @@ export class CollisionManager {
   }
 
   // Register all obstacles from a platform
-  registerPlatformObstacles(platform) {
-    console.log('Starting obstacle registration...');
-    console.log(`Concrete blocks: ${platform.concreteBlocks ? platform.concreteBlocks.length : 0}`);
-    console.log(`Spinning blades: ${platform.spinningBlades ? platform.spinningBlades.length : 0}`);
-    console.log(`Laser barriers: ${platform.laserBarriers ? platform.laserBarriers.length : 0}`);
+  registerPlatformObstacles(platform, platformName = 'unknown') {
+    console.log(`[${platformName}] Starting obstacle registration...`);
+    console.log(`[${platformName}] Concrete blocks: ${platform.concreteBlocks ? platform.concreteBlocks.length : 0}`);
+    console.log(`[${platformName}] Spinning blades: ${platform.spinningBlades ? platform.spinningBlades.length : 0}`);
+    console.log(`[${platformName}] Laser barriers: ${platform.laserBarriers ? platform.laserBarriers.length : 0}`);
 
     const registeredColliders = [];
-    let registeredCount = 0;
+    let platformRegisteredCount = 0;
 
     // Register concrete blocks
     if (platform.concreteBlocks) {
       platform.concreteBlocks.forEach((block, index) => {
-        console.log(`Concrete block ${index}: ready=${block.ready}, hasModel=${!!block.model}, name=${block._name}`);
+        console.log(`[${platformName}] Concrete block ${index}: ready=${block.ready}, hasModel=${!!block.model}, name=${block._name}`);
         if (block.ready && block.model) {
           const collider = this.add(block.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
-            registeredCount++;
-            console.log(`Registered concrete block collider: ${block._name}`);
+            platformRegisteredCount++;
+            this.registeredObstacleCount++;
+            console.log(`[${platformName}] ✓ Registered concrete block collider: ${block._name} (${this.registeredObstacleCount}/${this.expectedObstacleCount})`);
           }
         } else {
-          console.log(`Concrete block ${block._name} not ready yet`);
+          console.log(`[${platformName}] ⏳ Concrete block ${block._name} not ready yet`);
         }
       });
     }
@@ -82,11 +90,12 @@ export class CollisionManager {
           const collider = this.add(blade.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
-            registeredCount++;
-            console.log(`Registered spinning blade collider: ${blade._name}`);
+            platformRegisteredCount++;
+            this.registeredObstacleCount++;
+            console.log(`[${platformName}] ✓ Registered spinning blade collider: ${blade._name} (${this.registeredObstacleCount}/${this.expectedObstacleCount})`);
           }
         } else {
-          console.log(`Spinning blade ${blade._name} not ready yet`);
+          console.log(`[${platformName}] ⏳ Spinning blade ${blade._name} not ready yet`);
         }
       });
     }
@@ -98,23 +107,20 @@ export class CollisionManager {
           const collider = this.add(barrier.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
-            registeredCount++;
-            console.log(`Registered laser barrier collider: ${barrier._name}`);
+            platformRegisteredCount++;
+            this.registeredObstacleCount++;
+            console.log(`[${platformName}] ✓ Registered laser barrier collider: ${barrier._name} (${this.registeredObstacleCount}/${this.expectedObstacleCount})`);
           }
         } else {
-          console.log(`Laser barrier ${barrier._name} not ready yet`);
+          console.log(`[${platformName}] ⏳ Laser barrier ${barrier._name} not ready yet`);
         }
       });
     }
 
-    // If not all obstacles are ready, try again later
-    const expectedCount = this.getExpectedObstacleCount(platform);
-    if (registeredCount < expectedCount) {
-      console.log('Some obstacles not ready yet, retrying in 500ms...');
-      setTimeout(() => {
-        this.registerPlatformObstacles(platform);
-      }, 500);
-    }
+    console.log(`[${platformName}] Registered ${platformRegisteredCount} obstacles this attempt`);
+    
+    // Check if all obstacles are registered
+    this._checkRegistrationComplete();
 
     return registeredColliders;
   }
@@ -203,22 +209,67 @@ export class CollisionManager {
   }
 
   /**
+   * Calculate expected obstacle count based on level
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three
+   */
+  _calculateExpectedObstacles(platforms) {
+    let expected = 0;
+    
+    // Level 1 (always present)
+    if (platforms.structure && platforms.structure.platform) {
+      expected += this.getExpectedObstacleCount(platforms.structure.platform);
+    }
+    
+    // Level 2 obstacles
+    if (this.level >= 2 && platforms.platform_two) {
+      expected += this.getExpectedObstacleCount(platforms.platform_two);
+    }
+    
+    // Level 3 obstacles
+    if (this.level >= 3 && platforms.platform_three) {
+      expected += this.getExpectedObstacleCount(platforms.platform_three);
+    }
+    
+    return expected;
+  }
+
+  /**
+   * Check if all obstacles are registered and mark complete
+   */
+  _checkRegistrationComplete() {
+    if (!this.registrationComplete && this.registeredObstacleCount >= this.expectedObstacleCount && this.expectedObstacleCount > 0) {
+      this.registrationComplete = true;
+      console.log(`🎯 All obstacles registered! (${this.registeredObstacleCount}/${this.expectedObstacleCount})`);
+    }
+  }
+
+  /**
    * Register obstacles for the current level
    * @param {Object} platforms - Object containing structure, platform_two, platform_three
    */
   registerObstaclesForLevel(platforms) {
-    console.log(`Registering obstacles for level ${this.level}...`);
+    if (this.registrationStarted) {
+      console.log('⚠️ Obstacle registration already in progress');
+      return;
+    }
+    
+    this.registrationStarted = true;
+    console.log(`🚀 Starting obstacle registration for level ${this.level}...`);
+    
+    // Calculate expected obstacle count
+    this.expectedObstacleCount = this._calculateExpectedObstacles(platforms);
+    console.log(`📊 Expected obstacles: ${this.expectedObstacleCount}`);
     
     // Always register Level 1 obstacles (structure.platform)
     if (platforms.structure && platforms.structure.platform) {
-      console.log('Registering Level 1 obstacles...');
-      this.registerPlatformObstacles(platforms.structure.platform);
+      console.log('📍 Registering Level 1 obstacles...');
+      this.registerPlatformObstacles(platforms.structure.platform, 'Level 1');
     }
 
     // Register Level 2 obstacles if level >= 2
     if (this.level >= 2 && platforms.platform_two) {
-      console.log('Registering Level 2 obstacles...');
-      this.registerPlatformObstacles(platforms.platform_two);
+      console.log('📍 Registering Level 2 obstacles...');
+      this.registerPlatformObstacles(platforms.platform_two, 'Level 2');
       
       // Register initial flying cubes from spawner
       if (platforms.platform_two.flyingCubesSpawner) {
@@ -228,8 +279,8 @@ export class CollisionManager {
 
     // Register Level 3 obstacles if level >= 3
     if (this.level >= 3 && platforms.platform_three) {
-      console.log('Registering Level 3 obstacles...');
-      this.registerPlatformObstacles(platforms.platform_three);
+      console.log('📍 Registering Level 3 obstacles...');
+      this.registerPlatformObstacles(platforms.platform_three, 'Level 3');
       
       // Register initial flying cubes from spawner
       if (platforms.platform_three.flyingCubesSpawner) {
@@ -242,7 +293,8 @@ export class CollisionManager {
       }
     }
 
-    console.log(`Total colliders registered: ${this.colliders.length}`);
+    console.log(`📈 Total colliders registered so far: ${this.colliders.length}`);
+    console.log(`📊 Progress: ${this.registeredObstacleCount}/${this.expectedObstacleCount}`);
   }
 
   /**
@@ -386,11 +438,46 @@ export class CollisionManager {
   }
 
   /**
+   * Get registration status
+   * @returns {Object} Status object with registration info
+   */
+  getRegistrationStatus() {
+    return {
+      started: this.registrationStarted,
+      complete: this.registrationComplete,
+      registered: this.registeredObstacleCount,
+      expected: this.expectedObstacleCount,
+      progress: this.expectedObstacleCount > 0 ? (this.registeredObstacleCount / this.expectedObstacleCount) : 0
+    };
+  }
+
+  /**
+   * Check if obstacle registration is complete
+   * @returns {boolean}
+   */
+  isRegistrationComplete() {
+    return this.registrationComplete;
+  }
+
+  /**
+   * Get registration progress (0-1)
+   * @returns {number}
+   */
+  getRegistrationProgress() {
+    if (this.expectedObstacleCount === 0) return 0;
+    return Math.min(1, this.registeredObstacleCount / this.expectedObstacleCount);
+  }
+
+  /**
    * Clear all colliders (useful for level switching)
    */
   clearAllColliders() {
     this.colliders = [];
     this.registeredDynamicObstacles = new WeakMap();
+    this.registeredObstacleCount = 0;
+    this.expectedObstacleCount = 0;
+    this.registrationComplete = false;
+    this.registrationStarted = false;
     console.log('All colliders cleared');
   }
 }
