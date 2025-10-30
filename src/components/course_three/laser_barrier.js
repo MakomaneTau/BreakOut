@@ -146,6 +146,7 @@ export class LaserBarrierSpawner {
 			clone.userData = clone.userData || {};
 			clone.userData.velocity = direction.multiplyScalar(speed);
 			clone.userData.target = target;
+			clone.userData.type = 'laser'; // Set obstacle type for collision detection
 
 			this.scene.add(clone);
 			this.barriers.push(clone);

@@ -30,9 +30,9 @@ class World {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
-        this.collisionManager = game.collisionManager || new CollisionManager();
-        this.wallColliders = [];
         this.level = Math.max(1, Math.min(3, parseInt(opts.level || game.level || 1)));
+        this.collisionManager = game.collisionManager || new CollisionManager(this.level);
+        this.wallColliders = [];
 
         this.tmpPos = new Vector3();
         this.ready = false;
@@ -114,44 +114,45 @@ class World {
     }
 
     registerPlatformObstacles() {
-        // Wait a bit for platform obstacles to load, then register them
+        // Wait for platform obstacles to load, then register them using level-aware system
         setTimeout(() => {
-            if (this.structure && this.structure.platform) {
-                // Some builds define a helper on platform; otherwise use CollisionManager fallback
-                if (typeof this.structure.platform.registerObstaclesWithCollision === 'function') {
-                    this.structure.platform.registerObstaclesWithCollision();
-                } else if (this.collisionManager?.registerPlatformObstacles) {
-                    this.collisionManager.registerPlatformObstacles(this.structure.platform);
-                }
+            console.log(`World: Registering obstacles for level ${this.level}...`);
+            
+            // Gather all platform references
+            const platforms = {
+                structure: this.structure,
+                platform_two: this.platform_two,
+                platform_three: this.platform_three
+            };
+            
+            // Use new level-aware registration
+            if (this.collisionManager && this.collisionManager.registerObstaclesForLevel) {
+                this.collisionManager.registerObstaclesForLevel(platforms);
+                console.log(`World: Obstacle registration complete. Total colliders: ${this.collisionManager.getColliderCount()}`);
+            } else {
+                console.error('CollisionManager.registerObstaclesForLevel not available');
             }
-            if (this.level >= 2 && this.platform_two) {
-                if (typeof this.platform_two.registerObstaclesWithCollision === 'function') {
-                    this.platform_two.registerObstaclesWithCollision();
-                } else if (this.collisionManager?.registerPlatformObstacles) {
-                    this.collisionManager.registerPlatformObstacles(this.platform_two);
-                }
-            }
-            if (this.level >= 3 && this.platform_three) {
-                if (typeof this.platform_three.registerObstaclesWithCollision === 'function') {
-                    this.platform_three.registerObstaclesWithCollision();
-                } else if (this.collisionManager?.registerPlatformObstacles) {
-                    this.collisionManager.registerPlatformObstacles(this.platform_three);
-                }
-            }
-        }, 1500); // Slightly longer delay to ensure all obstacles are loaded
+        }, 1500); // Delay to ensure all obstacles are loaded
     }
 
  
     update(time, delta) {
         if (!this.ready) return;
-        // Example animation
-        //this.model.rotation.y += delta * 0.2;
+        
+        // Update all world components
         if (this.structure) this.structure.update(time, delta);
-        //if (this.ocean) this.ocean.update(time, delta);
-    if (this.wildIsland) this.wildIsland.update(time, delta);
-    if (this.level >= 2 && this.platform_two) this.platform_two.update(time, delta);
-    if (this.level >= 3 && this.platform_three) this.platform_three.update(time, delta);
+        if (this.wildIsland) this.wildIsland.update(time, delta);
+        if (this.level >= 2 && this.platform_two) this.platform_two.update(time, delta);
+        if (this.level >= 3 && this.platform_three) this.platform_three.update(time, delta);
 
+        // Sync dynamic obstacles every frame (flying cubes, spawned lasers)
+        if (this.collisionManager && this.collisionManager.syncDynamicObstacles) {
+            this.collisionManager.syncDynamicObstacles({
+                structure: this.structure,
+                platform_two: this.platform_two,
+                platform_three: this.platform_three
+            });
+        }
 
         if (this.eve) this.eve.update(time, delta);
     }
