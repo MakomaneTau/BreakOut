@@ -20,9 +20,32 @@ export class MainMenu {
     const year = new Date().getFullYear();
     overlay.innerHTML = `
       <style>
-        #main-menu-overlay { position:fixed; inset:0; display:grid; place-items:center; background:radial-gradient(1200px 800px at 50% 40%, rgba(255,255,255,0.06), rgba(0,0,0,0.92)); z-index:9999; }
-        .menu-panel { color:#fff; text-align:center; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
-        .menu-panel .title { margin:0 0 8px; font-size:56px; letter-spacing:2px; text-shadow:0 4px 24px rgba(0,0,0,.45); }
+        #main-menu-overlay { 
+          position:fixed; 
+          inset:0; 
+          display:grid; 
+          place-items:center; 
+          background-image: url('/icons/home_page_backeground.webp');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          z-index:9999;
+        }
+        #main-menu-overlay::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(1200px 800px at 50% 40%, rgba(0,0,0,0.3), rgba(0,0,0,0.85));
+          z-index: 1;
+        }
+        .menu-panel { 
+          position: relative;
+          z-index: 2;
+          color:#fff; 
+          text-align:center; 
+          font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; 
+        }
+        .menu-panel .title { margin:0 0 8px; font-size:56px; letter-spacing:2px; text-shadow:0 4px 24px rgba(0,0,0,.8), 0 2px 8px rgba(0,0,0,.9); }
         .menu-panel .prompt { margin:12px 0 6px; font-size:18px; letter-spacing:1px; opacity:.9; }
         .menu-panel .hint { margin:4px 0 14px; font-size:12px; opacity:.55; }
         .level-select { display:flex; gap:10px; justify-content:center; margin:12px 0 18px; }
@@ -30,8 +53,8 @@ export class MainMenu {
         .level-btn:hover { transform:translateY(-1px); background:#243041; }
         .level-btn.active { background:#3b82f6; color:#fff; box-shadow:0 6px 18px rgba(59,130,246,.35); border-color:#60a5fa; }
         .footer { margin-top:24px; opacity:.35; font-size:12px; }
-        .music-toggle { position:fixed; top:14px; right:14px; width:42px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.18); background:rgba(0,0,0,.45); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s ease; box-shadow:0 4px 16px rgba(0,0,0,.25); }
-        .music-toggle:hover { transform:translateY(-1px); background:rgba(0,0,0,.6); }
+        .music-toggle { position:fixed; top:14px; right:14px; width:42px; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.18); background:rgba(0,0,0,.65); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s ease; box-shadow:0 4px 16px rgba(0,0,0,.5); z-index: 10; }
+        .music-toggle:hover { transform:translateY(-1px); background:rgba(0,0,0,.8); }
       </style>
       <div class="menu-panel press-any-key">
         <h1 class="title">BreakOut</h1>
