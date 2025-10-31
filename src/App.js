@@ -374,7 +374,8 @@ class App {
 
                 // Initial UI update
                 this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth);
-                this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
+                // Lives system disabled - using health only
+                // this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
 
                 // Hook into health events
                 const originalOnDamage = playerHealth.onDamage;
@@ -390,16 +391,26 @@ class App {
                     this.healthUI.updateHealth(health, maxHealth);
                 };
 
-                const originalOnLifeLost = playerHealth.onLifeLost;
-                playerHealth.onLifeLost = (lives, maxLives) => {
-                    if (originalOnLifeLost) originalOnLifeLost(lives, maxLives);
-                    this.healthUI.updateLives(lives, maxLives);
-                };
+                // Lives system disabled - no need to track life lost
+                // const originalOnLifeLost = playerHealth.onLifeLost;
+                // playerHealth.onLifeLost = (lives, maxLives) => {
+                //     if (originalOnLifeLost) originalOnLifeLost(lives, maxLives);
+                //     this.healthUI.updateLives(lives, maxLives);
+                // };
+
+                // Respawn disabled - with permadeath mode, player goes straight to game over
+                // const originalOnRespawn = playerHealth.onRespawn;
+                // playerHealth.onRespawn = (checkpoint, health, lives) => {
+                //     if (originalOnRespawn) originalOnRespawn(checkpoint, health, lives);
+                //     // Update UI with restored health after respawn
+                //     this.healthUI.updateHealth(health, playerHealth.maxHealth);
+                //     this.healthUI.updateLives(lives, playerHealth.maxLives);
+                // };
 
                 const originalOnGameOver = playerHealth.onGameOver;
                 playerHealth.onGameOver = (stats) => {
                     if (originalOnGameOver) originalOnGameOver(stats);
-                    this.handleGameOver('lives', stats);
+                    this.handleGameOver('health', stats);
                 };
             }
         }, 100);
@@ -493,20 +504,27 @@ class App {
         // Reset health, timer, etc.
         if (this.healthUI) {
             this.healthUI.updateHealth(100, 100);
-            this.healthUI.updateLives(3, 3);
+            // Lives system disabled - using health only
+            // this.healthUI.updateLives(1, 1);
         }
 
+        // Reset and resume timer
         if (this.timerUI) {
             this.timerUI.resetTimer();
+            this.timerUI.resumeTimer();
         }
 
-        // Reset player health system
+        // Reset player health system FIRST (important - prevents game over callbacks)
         if (this.world?.eve?.health) {
             this.world.eve.health.reset();
+            console.log('Health system reset - Player is alive again');
         }
 
         // Reset world/player position and state
         if (this.world?.eve) {
+            // Immediately re-enable player (will be refined by resetToStartPosition)
+            this.world.eve.ready = true;
+            
             // Use proper reset method that includes ground detection
             if (typeof this.world.eve.resetToStartPosition === 'function') {
                 this.world.eve.resetToStartPosition();
@@ -516,8 +534,13 @@ class App {
                 this.world.eve.velocityY = 0;
             }
             
-            // Re-enable player controls
-            this.world.eve.ready = true;
+            // Ensure player controls are definitely enabled after all resets
+            setTimeout(() => {
+                if (this.world?.eve) {
+                    this.world.eve.ready = true;
+                    console.log('Player controls confirmed enabled after restart');
+                }
+            }, 200);
         }
 
         // Reset obstacles for Level 2
@@ -573,8 +596,15 @@ class App {
 
         console.log('Time has run out - showing lose screen');
 
-        // Stop the game
-        this.isGameStarted = false;
+        // Disable player controls but keep world animating
+        if (this.world?.eve) {
+            this.world.eve.ready = false;
+        }
+
+        // Stop the timer
+        if (this.timerUI) {
+            this.timerUI.pauseTimer();
+        }
 
         // Get current stats
         const stats = this.getCurrentGameStats();
@@ -592,8 +622,15 @@ class App {
 
         console.log(`Game over due to ${lossType} - showing lose screen`);
 
-        // Stop the game
-        this.isGameStarted = false;
+        // Disable player controls but keep world animating
+        if (this.world?.eve) {
+            this.world.eve.ready = false;
+        }
+
+        // Stop the timer
+        if (this.timerUI) {
+            this.timerUI.pauseTimer();
+        }
 
         // Get current stats and merge with provided stats
         const currentStats = this.getCurrentGameStats();
@@ -610,17 +647,13 @@ class App {
         const stats = {
             health: 0,
             maxHealth: 100,
-            lives: 0,
-            maxLives: 3,
             timeFormatted: '00:00'
         };
 
-        // Get health and lives from player
+        // Get health from player (lives system disabled)
         if (this.world?.eve?.health) {
             stats.health = this.world.eve.health.currentHealth;
             stats.maxHealth = this.world.eve.health.maxHealth;
-            stats.lives = this.world.eve.health.currentLives;
-            stats.maxLives = this.world.eve.health.maxLives;
         }
 
         // Get current time from timer

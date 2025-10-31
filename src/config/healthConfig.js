@@ -8,9 +8,9 @@ export const HealthConfig = {
   MAX_HEALTH: 100,
   DEFAULT_HEALTH: 100,
   
-  // Lives settings
-  MAX_LIVES: 3,
-  DEFAULT_LIVES: 3,
+  // Lives settings (DISABLED - using health only)
+  MAX_LIVES: 1,
+  DEFAULT_LIVES: 1,
   PERMADEATH_LIVES: 1,
   
   // Damage values
@@ -24,7 +24,7 @@ export const HealthConfig = {
   MEDIUM_HEAL: 50,
   FULL_HEAL: 100,
   
-  // Respawn settings
+  // Respawn settings (DISABLED - no respawn, game over on death)
   RESPAWN_INVULNERABILITY_DURATION: 2.0, // seconds
   RESPAWN_HEALTH_PERCENTAGE: 1.0, // 100% health on respawn
   DAMAGE_COOLDOWN_DURATION: 0.5, // seconds - prevent rapid damage from same source
@@ -35,8 +35,8 @@ export const HealthConfig = {
   CRITICAL_HEALTH_THRESHOLD: 15, // percentage
   
   // Game modes
-  PERMADEATH_MODE: false, // Toggle for permadeath
-  CHECKPOINTS_ENABLED: true, // Toggle for checkpoint system
+  PERMADEATH_MODE: true, // Enable permadeath - no lives, health only
+  CHECKPOINTS_ENABLED: false, // Disable checkpoint system
 };
 
 /**

@@ -103,14 +103,14 @@ export class HealthUI {
     healthBarContainer.appendChild(this.healthBar);
     this.container.appendChild(healthBarContainer);
     
-    // Create lives container
+    // Create lives container (HIDDEN - lives system disabled)
     this.livesContainer = document.createElement('div');
     this.livesContainer.style.cssText = `
+      display: none; /* Lives system disabled */
       background: rgba(0, 0, 0, 0.7);
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-radius: 10px;
       padding: 10px 15px;
-      display: flex;
       align-items: center;
       gap: 10px;
     `;
@@ -252,7 +252,6 @@ export class HealthUI {
     `;
     
     statsContainer.innerHTML = `
-      <p style="font-size: 20px; margin: 10px 0;">Deaths: ${stats.deathCount}</p>
       <p style="font-size: 20px; margin: 10px 0;">Total Damage Taken: ${Math.ceil(stats.totalDamageTaken)}</p>
       <p style="font-size: 20px; margin: 10px 0;">Total Healing: ${Math.ceil(stats.totalHealing)}</p>
     `;

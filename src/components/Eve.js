@@ -412,6 +412,9 @@ class Eve {
     // Use the same reset logic as restart button but keep the timer running
     this.resetToStartPosition();
     
+    // Re-enable player controls after respawn
+    this.ready = true;
+    
     // Note: Timer is NOT reset during respawn, only during full game restart
   }
 

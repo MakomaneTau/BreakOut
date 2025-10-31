@@ -1,6 +1,6 @@
 /**
  * LoseComponent - Comprehensive game over UI component
- * Handles all loss conditions: time out, health depletion, lives exhausted
+ * Handles all loss conditions: time out, health depletion
  */
 export class LoseComponent {
   constructor(options = {}) {
@@ -17,7 +17,7 @@ export class LoseComponent {
     this.onQuit = options.onQuit || (() => {});
     
     // Loss type tracking
-    this.lossType = null; // 'time', 'health', 'lives'
+    this.lossType = null; // 'time', 'health'
     this.lossStats = null;
     
     this.createUI();
@@ -325,7 +325,7 @@ export class LoseComponent {
 
   /**
    * Show the lose component
-   * @param {string} lossType - Type of loss: 'time', 'health', 'lives'
+   * @param {string} lossType - Type of loss: 'time', 'health'
    * @param {Object} stats - Player stats to display
    */
   show(lossType = 'health', stats = {}) {
@@ -379,10 +379,6 @@ export class LoseComponent {
         subtitleText = 'Your health has been depleted!';
         titleColor = '#ff4444';
         break;
-      case 'lives':
-        subtitleText = 'All lives have been lost!';
-        titleColor = '#ff4444';
-        break;
       default:
         subtitleText = 'Mission failed!';
         titleColor = '#ff4444';
@@ -403,13 +399,6 @@ export class LoseComponent {
       'slideInLeft'
     );
     
-    const livesStat = this.createStat(
-      'Lives', 
-      `${stats.lives || 0}/${stats.maxLives || 3}`, 
-      '#ff6b6b',
-      'fadeInUp'
-    );
-    
     const timeStat = this.createStat(
       'Time', 
       stats.timeFormatted || '00:00', 
@@ -417,19 +406,7 @@ export class LoseComponent {
       'slideInRight'
     );
 
-    // Add additional stats if available
-    if (stats.deathCount !== undefined) {
-      const deathStat = this.createStat(
-        'Deaths', 
-        stats.deathCount.toString(), 
-        '#ff4444',
-        'slideInLeft'
-      );
-      this.statsContainer.appendChild(deathStat);
-    }
-
     this.statsContainer.appendChild(healthStat);
-    this.statsContainer.appendChild(livesStat);
     this.statsContainer.appendChild(timeStat);
 
     // Add damage taken stat if available
