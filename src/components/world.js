@@ -1,10 +1,12 @@
 import * as THREE from '../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
 import { Vector3 } from '../../public/libs/three137/three.module.js';
-import { Prison } from './prison.js';
-import { stairs } from './stairs.js';
-import { platform } from './course/platform.js';
 import { concrete_blocks } from './course/concrete_blocks.js';
+import { Structure } from './structure.js';
+import { ocean } from './location/ocean.js';
+import { wild_island } from './location/wild_island.js';
+import { platform as platform_two } from './course_two/platform.js';
+import { platform as platform_three } from './course_three/platform.js';
 
 class World {
     loadSkybox() {
@@ -19,6 +21,7 @@ class World {
                 'nz.jpg'
             ]);
     }
+
     constructor(game) {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
@@ -27,40 +30,36 @@ class World {
         this.tmpPos = new Vector3();
         this.ready = false;
 
-        this.prison = new Prison(game);
-        this.stairs = new stairs(game);
-        this.platform = new platform(game);
+        // Unified structure containing prison, stairs, and platform
+        this.structure = new Structure(game, {
+            // You can change the overall position/rotation/scale here
+            // position: new THREE.Vector3(0, 0, 0),
+            //rotation: new THREE.Euler(Math.PI, -Math.PI / 100, Math.PI),
+            // scale: new THREE.Vector3(1, 1, 1)
+        });
+        this.platform_two = new platform_two(game);
+        this.platform_three = new platform_three(game);
+        //this.ocean = new ocean(game);
+        this.wildIsland = new wild_island(game);
 
         this.load();
     }
 
     load() {
-        const loader = new GLTFLoader().setPath(`${this.assetsPath}models/road/`);
-
-        loader.load(
-            'scene.gltf',
-            gltf => {
-                // Adjust model size here
-                gltf.scene.scale.set(0.5, 0.5, 0.5); // Example: scale to half size
-                gltf.scene.position.set(-5, -5, -5); // Example: position at origin
-                this.scene.add(gltf.scene);
-                this.model = gltf.scene;
-                this.ready = true;
-                // Load skybox for a big scene
-                this.loadSkybox();
-            },
-            xhr => this.loadingBar.update('world', xhr.loaded, xhr.total),
-            err => console.error(err)
-        );
+        // No longer loading the road model; just set the environment and mark ready.
+        this.loadSkybox();
+        this.ready = true;
     }
 
     update(time, delta) {
         if (!this.ready) return;
         // Example animation
         //this.model.rotation.y += delta * 0.2;
-        if (this.prison) this.prison.update(time, delta);
-        if (this.stairs) this.stairs.update(time, delta);
-        if (this.platform) this.platform.update(time, delta);
+        if (this.structure) this.structure.update(time, delta);
+        //if (this.ocean) this.ocean.update(time, delta);
+        if (this.wildIsland) this.wildIsland.update(time, delta);
+        if (this.platform_two) this.platform_two.update(time, delta);
+        if (this.platform_three) this.platform_three.update(time, delta);
 
     }
 

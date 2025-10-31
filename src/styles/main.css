@@ -8,3 +8,130 @@ canvas {
   width: 100%;
   height: 100%;
 }
+
+/* Main menu overlay */
+#main-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 70%);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+}
+
+#main-menu-overlay .menu-panel {
+  width: min(90vw, 540px);
+  padding: 32px 28px;
+  background: rgba(20, 20, 24, 0.8);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 40px rgba(255,255,255,0.03);
+  backdrop-filter: blur(6px);
+  text-align: center;
+  color: #fff;
+}
+
+#main-menu-overlay .title {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 4vw, 42px);
+  letter-spacing: 1px;
+}
+
+#main-menu-overlay .buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 12px 0 8px;
+}
+
+#main-menu-overlay .btn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.05s ease;
+}
+
+#main-menu-overlay .btn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+#main-menu-overlay .btn:active {
+  transform: translateY(1px);
+}
+
+#main-menu-overlay .btn.primary {
+  background: linear-gradient(135deg, #4c8bf5, #7aa8ff);
+  border-color: transparent;
+}
+
+#main-menu-overlay .footer {
+  margin-top: 14px;
+  opacity: 0.65;
+  font-size: 12px;
+  color: #ddd;
+}
+
+/* Pause menu overlay */
+#pause-menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.7) 70%);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+}
+
+#pause-menu-overlay .menu-panel {
+  width: min(90vw, 520px);
+  padding: 28px 24px;
+  background: rgba(20, 20, 24, 0.75);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 40px rgba(255,255,255,0.03);
+  backdrop-filter: blur(5px);
+  text-align: center;
+  color: #fff;
+}
+
+#pause-menu-overlay .title {
+  margin: 0 0 12px;
+  font-size: clamp(24px, 4vw, 36px);
+  letter-spacing: 0.5px;
+}
+
+#pause-menu-overlay .buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 10px 0 6px;
+}
+
+#pause-menu-overlay .btn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.05s ease;
+}
+
+#pause-menu-overlay .btn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+#pause-menu-overlay .btn:active {
+  transform: translateY(1px);
+}
+
+#pause-menu-overlay .btn.primary {
+  background: linear-gradient(135deg, #4c8bf5, #7aa8ff);
+  border-color: transparent;
+}

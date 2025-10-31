@@ -1,7 +1,7 @@
 import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
 
-class spinning_blade {
+class laser_barrier {
 	constructor(game, opts = {}) {
 		this.assetsPath = game.assetsPath;
 		this.loadingBar = game.loadingBar;
@@ -13,7 +13,7 @@ class spinning_blade {
 			position = [-21.2, 1.8, 0],
 			rotationY = Math.PI / 2,
 			scale = [1, 1, 1],
-			name = 'c'
+			name = 'laser_barrier'
 		} = opts;
 
 		// Normalize transforms
@@ -26,18 +26,17 @@ class spinning_blade {
 	}
 
 	load() {
-		const loader = new GLTFLoader().setPath(`${this.assetsPath}models/obstacles/spinning_blade_obstacle/`);
+		const loader = new GLTFLoader().setPath(`${this.assetsPath}models/obstacles/laser/`);
 		loader.load(
 			'scene.gltf',
 			gltf => {
 				const obj = gltf.scene;
 				obj.name = this._name;
 				obj.rotation.y = this._rotationY;
-				obj.rotation.x = Math.PI / 2;
 				obj.scale.copy(this._scale);
 				obj.position.copy(this._position);
 
-				// Enable shadows on blade meshes
+				// Enable shadows on barrier meshes
 				obj.traverse(node => {
 					if (node.isMesh) {
 						node.castShadow = true;
@@ -49,7 +48,7 @@ class spinning_blade {
 				this.model = obj;
 				this.ready = true;
 			},
-			xhr => this.loadingBar.update('spinning_blade', xhr.loaded, xhr.total),
+			xhr => this.loadingBar.update('laser_barrier', xhr.loaded, xhr.total),
 			err => console.error(err)
 		);
 	}
@@ -57,9 +56,8 @@ class spinning_blade {
 	update(time, delta) {
 		if (!this.ready) return;
 		// Optional: animate or update platform model here
-		this.model.rotation.y += delta * 9; // Spin the blade
-
+		this.model.position.x = this._position.x + Math.sin(Date.now() * 0.005) * 1; // Sway left and right from original x
 	}
 }
 
-export { spinning_blade };
+export { laser_barrier };
