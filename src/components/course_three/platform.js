@@ -13,17 +13,17 @@ class platform {
 		this.model = null;
 
 		this.concreteBlocks = [
-			new concrete_blocks(game, { position: [-170, 4.6, -7], scale: [6.5, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-160, 4.6, 3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-150, 4.6, -1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-139, 4.6, 3.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-130, 4.6, 5.5], scale: [9, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-120, 4.6, -4.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-110, 4.6, 0], scale: [12, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-100, 4.6, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-115, 4.6, 4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-103, 4.6, 4], scale: [12, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-105, 4.6, -4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-170, 4.6, -7], scale: [6.5, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-160, 4.6, 3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-150, 4.6, -1], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-139, 4.6, 3.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-130, 4.6, 5.5], scale: [9, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-120, 4.6, -4.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-110, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-100, 4.6, -3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-115, 4.6, 4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-103, 4.6, 4], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			new concrete_blocks(game, { position: [-105, 4.6, -4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
 		];
 
 		// Flying cubes spawner (deterministic: edit coordinates/scale below)

@@ -45,6 +45,9 @@ class spinning_blade {
 					}
 				});
 
+				// Set obstacle type for collision detection
+				obj.userData.type = 'spinning_blade';
+
 				this.scene.add(obj);
 				this.model = obj;
 				this.ready = true;
@@ -52,6 +55,12 @@ class spinning_blade {
 			xhr => this.loadingBar.update('spinning_blade', xhr.loaded, xhr.total),
 			err => console.error(err)
 		);
+	}
+
+	// Register this obstacle as a collider
+	registerCollider(collisionManager) {
+		if (!this.model || !collisionManager) return null;
+		return collisionManager.add(this.model, 'box');
 	}
 
 	update(time, delta) {

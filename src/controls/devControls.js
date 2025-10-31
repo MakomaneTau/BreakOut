@@ -23,6 +23,20 @@ export class DevControls {
         this.move = { forward: false, backward: false, left: false, right: false };
         this.direction = new THREE.Vector3();
         this.speed = 5;
+
+        // Camera view movement
+        this.isFirstPerson = false; // Start with third-person
+        // Third-person spherical style offset (side = x, up = y, back = z)
+        this.thirdPersonOffset = new THREE.Vector3(0, 1, -5); // default
+        this.minDistance = 1.5;
+        this.maxDistance = 15;
+        this.zoomSpeed = 0.6;
+        this.targetObject = null; // Will be set to the character
+        this.targetPosition = new THREE.Vector3();
+        this.headOffset = new THREE.Vector3(0, 1.3, 0); // approximate head height for look target
+        this.eyeOffset = new THREE.Vector3(0, 1.6, 0);  // eye level for first-person
+        this.followSmoothing = 0.12; // lerp factor for third-person follow
+
         this._addListeners();
 
         // Persistence: save/restore camera + orbit target
@@ -41,8 +55,12 @@ export class DevControls {
                 case 'KeyS': this.move.backward = true; break;
                 case 'KeyA': this.move.left = true; break;
                 case 'KeyD': this.move.right = true; break;
+                case 'KeyV': // Toggle between first-person and third-person view
+                    this.toggleCameraMode();
+                    break;
             }
         });
+
         window.addEventListener('keyup', (e) => {
             switch (e.code) {
                 case 'KeyW': this.move.forward = false; break;
@@ -51,7 +69,86 @@ export class DevControls {
                 case 'KeyD': this.move.right = false; break;
             }
         });
+
+        // Scroll wheel: adjust third-person distance (only when in third-person)
+        window.addEventListener('wheel', (e) => {
+            if (this.isFirstPerson) return;
+            const delta = Math.sign(e.deltaY) * this.zoomSpeed;
+            // Modify only Z component (distance back). Keep negative (behind)
+            let currentDist = Math.abs(this.thirdPersonOffset.z);
+            currentDist += delta;
+            currentDist = THREE.MathUtils.clamp(currentDist, this.minDistance, this.maxDistance);
+            this.thirdPersonOffset.z = -currentDist;
+        }, { passive: true });
     }
+
+    /**
+     * Set the target object (character) to follow
+     * @param {THREE.Object3D} targetObject - The object to follow
+     */
+    setTargetObject(targetObject) {
+        this.targetObject = targetObject;
+    }
+
+    /**
+     * Toggle camera mode
+     */
+    toggleCameraMode() {
+        this.isFirstPerson = !this.isFirstPerson;
+        this._updateCameraPosition(true);
+    }
+
+    /**
+     * Set camera mode
+     * @param {boolean} isFirstPerson - True for first-person, false for third-person
+     */
+    setCameraMode(isFirstPerson) {
+        this.isFirstPerson = isFirstPerson;
+        this._updateCameraPosition(true);
+    }
+
+    /**
+     * Configure third-person camera offset using intuitive params.
+     * @param {Object} opts
+     * @param {number} [opts.distance] Backwards distance from player (horizontal plane)
+     * @param {number} [opts.height]   Height above player
+     * @param {number} [opts.side]     Lateral offset (positive = right of player)
+     * @param {number} [opts.smoothing] Lerp factor (0-1) for follow
+     */
+    setThirdPersonCamera(opts = {}) {
+        const { distance, height, side, smoothing } = opts;
+        if (typeof distance === 'number') {
+            const d = THREE.MathUtils.clamp(distance, this.minDistance, this.maxDistance);
+            this.thirdPersonOffset.z = -Math.abs(d);
+        }
+        if (typeof height === 'number') this.thirdPersonOffset.y = height;
+        if (typeof side === 'number') this.thirdPersonOffset.x = side;
+        if (typeof smoothing === 'number') this.followSmoothing = THREE.MathUtils.clamp(smoothing, 0.01, 1);
+        // Immediately snap if desired
+        this._updateCameraPosition(true);
+    }
+
+    _updateCameraPosition(immediate = false) {
+        if (!this.targetObject) return;
+
+        const targetPos = this.targetObject.position.clone();
+
+        if (this.isFirstPerson) {
+            // First-person: position camera at character's eye level
+            const eyeHeight = 1.6; // height from base of character to "eyes"
+            this.targetPosition = targetPos.clone().add(new THREE.Vector3(0, eyeHeight, 0));
+        } else {
+            // Third-person: position camera behind character
+            const offset = this.thirdPersonOffset.clone();
+            offset.applyQuaternion(this.targetObject.quaternion); // rotate offset with character
+            this.targetPosition = targetPos.clone().add(offset);
+        }
+
+        if (immediate) {
+            this.camera.position.copy(this.targetPosition);
+        }
+    }
+
 
     update(dt) {
         this.direction.set(0, 0, 0);
@@ -74,6 +171,43 @@ export class DevControls {
             // Persist position/target when moved via WASD
             this._saveCameraStateDebounced();
         }
+
+        // --- FOLLOW LOGIC ---
+        if (this.targetObject) {
+            if (this.isFirstPerson) {
+                // Position camera at eye level
+                const desiredFP = this.targetObject.position.clone().add(this.eyeOffset);
+                this.camera.position.lerp(desiredFP, 0.35); // a bit quicker for responsiveness
+
+                // Copy horizontal rotation from targetObject (assumes Y-up)
+                // If the target rotates only on Y axis this is enough; otherwise slerp full quaternion.
+                this.camera.quaternion.slerp(this.targetObject.quaternion, 0.25);
+
+                // Disable orbit rotation so user doesn't fight first-person orientation
+                this.controls.enableRotate = false;
+                // Keep controls target slightly ahead so damping still works for any dependent features
+                const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.camera.quaternion);
+                const lookAhead = this.camera.position.clone().add(forward.multiplyScalar(2));
+                this.controls.target.lerp(lookAhead, 0.5);
+            } else {
+                // Recompute desired third-person position every frame (so we actually follow movement)
+                const offset = this.thirdPersonOffset.clone().applyQuaternion(this.targetObject.quaternion);
+                const desiredTP = this.targetObject.position.clone().add(offset);
+                // Smooth follow
+                this.camera.position.lerp(desiredTP, this.followSmoothing);
+
+                // Look at (or orbit around) the character's head
+                const desiredTarget = this.targetObject.position.clone().add(this.headOffset);
+                this.controls.target.lerp(desiredTarget, 0.25);
+                this.controls.enableRotate = true; // allow user to orbit slightly if desired
+            }
+
+            // Basic ground clamp (avoid dipping below y = -1)
+           // if (this.camera.position.y < -1) this.camera.position.y = -1;
+        }
+
+        // If no target object we just allow free-fly/orbit
+
         this.controls.update();
     }
 

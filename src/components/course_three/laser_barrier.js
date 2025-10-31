@@ -132,6 +132,7 @@ export class LaserBarrierSpawner {
 
 			// Set rotation only on root object
 			clone.rotation.y = LASER_BARRIER_ROT_Y;
+			clone.visible = true;
 			clone.traverse(obj => {
 				if (obj.isMesh) {
 					obj.castShadow = true;
@@ -146,6 +147,7 @@ export class LaserBarrierSpawner {
 			clone.userData = clone.userData || {};
 			clone.userData.velocity = direction.multiplyScalar(speed);
 			clone.userData.target = target;
+			clone.userData.type = 'laser'; // Set obstacle type for collision detection
 
 			this.scene.add(clone);
 			this.barriers.push(clone);
@@ -172,6 +174,7 @@ export class LaserBarrierSpawner {
 				return true;
 			} else {
 				// reached
+				item.visible = false;
 				item.position.copy(item.userData.target);
 				this.scene.remove(item);
 				return false;

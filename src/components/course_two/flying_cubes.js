@@ -91,6 +91,7 @@ export class FlyingCubesSpawner {
             start: startV.clone(),
             target: endV.clone(),
             velocity: dir.multiplyScalar(speed),
+            type: 'flying_cube', // Set obstacle type for collision detection
         };
 
         this.scene.add(cube);
