@@ -15,6 +15,9 @@ export class HealthUI {
     this.damageFlashTimer = 0;
     this.isFlashing = false;
     
+    // Callback for restart button
+    this.onRestart = options.onRestart || (() => location.reload());
+    
     this.createUI();
   }
   
@@ -275,7 +278,13 @@ export class HealthUI {
       restartButton.style.transform = 'scale(1)';
     };
     restartButton.onclick = () => {
-      location.reload();
+      // Remove the game over screen
+      const gameOverScreen = document.getElementById('game-over-screen');
+      if (gameOverScreen) {
+        gameOverScreen.remove();
+      }
+      // Call the restart callback
+      this.onRestart();
     };
     
     // Add CSS animation for pulse effect

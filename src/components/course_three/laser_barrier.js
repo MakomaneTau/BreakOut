@@ -182,6 +182,28 @@ export class LaserBarrierSpawner {
 		});
 	}
 
+	/**
+	 * Reset the spawner (remove all barriers and reset timer)
+	 */
+	reset() {
+		// Remove all active barriers
+		this.barriers.forEach(b => { 
+			try { 
+				this.scene.remove(b); 
+			} catch {} 
+		});
+		this.barriers = [];
+		
+		// Reset timer
+		this.timer = 0;
+		this.nextInterval = this._rand(this.options.intervalMin, this.options.intervalMax);
+		
+		// Optionally spawn initial barriers if configured
+		if (this.options.initialSpawn) {
+			this.spawnBarriers();
+		}
+	}
+
 	dispose() {
 		// remove active barriers
 		this.barriers.forEach(b => { try { this.scene.remove(b); } catch {} });

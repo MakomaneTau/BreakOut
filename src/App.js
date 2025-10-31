@@ -63,7 +63,11 @@ class App {
         this.assetsPath = '/assets/';
 
         // Initialize Health UI
-        this.healthUI = new HealthUI();
+        this.healthUI = new HealthUI({
+            onRestart: () => {
+                this.restartGame();
+            }
+        });
 
         // Initialize Timer UI
         const initialTime = LEVEL_START_TIMES[this.level] ?? LEVEL_START_TIMES[1];
@@ -278,7 +282,10 @@ class App {
         this.paused = false;
         this.pauseMenu = new PauseMenu({
             onResume: () => this.setPaused(false),
-            onRestart: () => window.location.reload(),
+            onRestart: () => {
+                this.setPaused(false);
+                this.restartGame();
+            },
             onMainMenu: () => {
                 this.quitToMainMenu();
             }
@@ -470,6 +477,16 @@ class App {
             this.loseComponent.hide();
         }
 
+        // Hide pause UI if visible
+        if (this.pauseUI && this.pauseUI.isVisible) {
+            this.pauseUI.hide();
+        }
+
+        // Hide old pause menu if visible
+        if (this.pauseMenu) {
+            this.pauseMenu.hide();
+        }
+
         // Show game UI
         this.gameUI.show();
 
@@ -486,13 +503,38 @@ class App {
         // Reset player health system
         if (this.world?.eve?.health) {
             this.world.eve.health.reset();
-            this.world.eve.ready = true; // Re-enable player controls
         }
 
-        // Reset world/player position
+        // Reset world/player position and state
         if (this.world?.eve) {
-            // Reset player position to original starting position
-            this.world.eve.model.position.set(3, 0, 0);
+            // Use proper reset method that includes ground detection
+            if (typeof this.world.eve.resetToStartPosition === 'function') {
+                this.world.eve.resetToStartPosition();
+            } else {
+                // Fallback to manual reset if method doesn't exist
+                this.world.eve.model.position.set(3, 1, 0);
+                this.world.eve.velocityY = 0;
+            }
+            
+            // Re-enable player controls
+            this.world.eve.ready = true;
+        }
+
+        // Reset obstacles for Level 2
+        if (this.level >= 2 && this.world?.platform_two) {
+            if (this.world.platform_two.flyingCubesSpawner?.reset) {
+                this.world.platform_two.flyingCubesSpawner.reset();
+            }
+        }
+
+        // Reset obstacles for Level 3
+        if (this.level >= 3 && this.world?.platform_three) {
+            if (this.world.platform_three.flyingCubesSpawner?.reset) {
+                this.world.platform_three.flyingCubesSpawner.reset();
+            }
+            if (this.world.platform_three.laserBarrierSpawner?.reset) {
+                this.world.platform_three.laserBarrierSpawner.reset();
+            }
         }
     }
 
