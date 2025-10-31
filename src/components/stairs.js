@@ -13,29 +13,49 @@ class stairs {
 
 	load() {
 		const loader = new GLTFLoader().setPath(`${this.assetsPath}models/stairs/`);
-		const platformLoader = new GLTFLoader().setPath(`${this.assetsPath}models/platform/`);
+		const textureLoader = new THREE.TextureLoader();
 
-		platformLoader.load(
-			'scene.gltf',
-			gltf => {
-				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
-				gltf.scene.scale.set(0.05, 2, 0.03); // Adjust scale as needed
-				gltf.scene.position.set(0.55, -8.6, 0.4); // Adjust position as needed
 
-				this.scene.add(gltf.scene);
-				this.model = gltf.scene;
-				this.ready = true;
-			},
-			xhr => this.loadingBar.update('stairs', xhr.loaded, xhr.total),
-			err => console.error(err)
-		);
+		const colorMap = textureLoader.load('src/components/texture_stairs/textures/rock_face_diff_2k.jpg');
+		const normalMap = textureLoader.load('src/components/texture_stairs/textures/rock_face_nor_gl_2k.jpg');
+		// const roughnessMap = textureLoader.load('src/components/texture_stairs/textures/rock_face_rough_2k.jpg');
+		const aoMap = textureLoader.load('src/components/texture_stairs/textures/rock_face_ao_2k.jpg');
+		const displacementMap = textureLoader.load('src/components/texture_stairs/textures/rock_face_disp_2k.jpg');
+
+		//
+		[colorMap, normalMap, aoMap, displacementMap].forEach(tex => {
+			tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+			tex.repeat.set(2, 2);
+		});
+		colorMap.colorSpace = THREE.SRGBColorSpace;
+
+
+		const rockMaterial = new THREE.MeshStandardMaterial({
+			map: colorMap,
+			normalMap: normalMap,
+			// roughnessMap: roughnessMap,
+			aoMap: aoMap,
+			displacementMap: displacementMap,
+			roughness: 0.9,
+			metalness: 0.1,
+			displacementScale: 0.05,
+		});
+
 
 		loader.load(
 			'scene.gltf',
 			gltf => {
-				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
-				gltf.scene.scale.set(5, 3.5, 5); // Adjust scale as needed
-				gltf.scene.position.set(-80, -21.6, -62.9); // Adjust position as needed
+				gltf.scene.rotation.y = Math.PI / 2;
+				gltf.scene.scale.set(5, 3.5, 5);
+				gltf.scene.position.set(-80, -21, -62.9);
+
+				gltf.scene.traverse(child => {
+					if (child.isMesh) {
+						child.material = rockMaterial;
+						child.castShadow = true;
+						child.receiveShadow = true;
+					}
+				});
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
@@ -48,7 +68,7 @@ class stairs {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		// Optional: animate or update stairs model here
+
 	}
 }
 
