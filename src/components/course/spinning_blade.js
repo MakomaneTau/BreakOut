@@ -45,6 +45,9 @@ class spinning_blade {
 					}
 				});
 
+				// Set obstacle type for collision detection
+				obj.userData.type = 'spinning_blade';
+
 				this.scene.add(obj);
 				this.model = obj;
 				this.ready = true;

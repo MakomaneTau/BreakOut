@@ -20,6 +20,12 @@ import { PauseMenu } from './ui/pauseMenu.js';
 import { QualityPresets, autoSelectQuality } from './core/perfConfig.js';
 import { PerformanceManager } from './core/performance.js';
 
+const LEVEL_START_TIMES = {
+    1: 180,
+    2: 150,
+    3: 120
+};
+
 class App {
 
     initWASDControls() {
@@ -57,11 +63,17 @@ class App {
         this.assetsPath = '/assets/';
 
         // Initialize Health UI
-        this.healthUI = new HealthUI();
+        this.healthUI = new HealthUI({
+            onRestart: () => {
+                this.restartGame();
+            }
+        });
 
         // Initialize Timer UI
+        const initialTime = LEVEL_START_TIMES[this.level] ?? LEVEL_START_TIMES[1];
+
         this.timerUI = new TimerUI({
-            initialTime: 210, // 3:30 in seconds
+            initialTime,
             onTimeUp: () => {
                 console.log('Time\'s up!');
                 this.handleTimeUp();
@@ -93,7 +105,7 @@ class App {
                 this.settingsUI.show();
             },
             onQuit: () => {
-                window.close();
+                this.quitToMainMenu();
             }
         });
 
@@ -132,7 +144,7 @@ class App {
                 this.showMainMenu();
             },
             onQuit: () => {
-                window.close();
+                this.quitToMainMenu();
             }
         });
 
@@ -270,11 +282,12 @@ class App {
         this.paused = false;
         this.pauseMenu = new PauseMenu({
             onResume: () => this.setPaused(false),
-            onRestart: () => window.location.reload(),
+            onRestart: () => {
+                this.setPaused(false);
+                this.restartGame();
+            },
             onMainMenu: () => {
-                // Tear down and signal to show main menu
-                this.destroy();
-                window.dispatchEvent(new CustomEvent('show-main-menu'));
+                this.quitToMainMenu();
             }
         });
 
@@ -361,7 +374,8 @@ class App {
 
                 // Initial UI update
                 this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth);
-                this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
+                // Lives system disabled - using health only
+                // this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
 
                 // Hook into health events
                 const originalOnDamage = playerHealth.onDamage;
@@ -377,16 +391,26 @@ class App {
                     this.healthUI.updateHealth(health, maxHealth);
                 };
 
-                const originalOnLifeLost = playerHealth.onLifeLost;
-                playerHealth.onLifeLost = (lives, maxLives) => {
-                    if (originalOnLifeLost) originalOnLifeLost(lives, maxLives);
-                    this.healthUI.updateLives(lives, maxLives);
-                };
+                // Lives system disabled - no need to track life lost
+                // const originalOnLifeLost = playerHealth.onLifeLost;
+                // playerHealth.onLifeLost = (lives, maxLives) => {
+                //     if (originalOnLifeLost) originalOnLifeLost(lives, maxLives);
+                //     this.healthUI.updateLives(lives, maxLives);
+                // };
+
+                // Respawn disabled - with permadeath mode, player goes straight to game over
+                // const originalOnRespawn = playerHealth.onRespawn;
+                // playerHealth.onRespawn = (checkpoint, health, lives) => {
+                //     if (originalOnRespawn) originalOnRespawn(checkpoint, health, lives);
+                //     // Update UI with restored health after respawn
+                //     this.healthUI.updateHealth(health, playerHealth.maxHealth);
+                //     this.healthUI.updateLives(lives, playerHealth.maxLives);
+                // };
 
                 const originalOnGameOver = playerHealth.onGameOver;
                 playerHealth.onGameOver = (stats) => {
                     if (originalOnGameOver) originalOnGameOver(stats);
-                    this.handleGameOver('lives', stats);
+                    this.handleGameOver('health', stats);
                 };
             }
         }, 100);
@@ -423,6 +447,25 @@ class App {
     }
 
     /**
+     * Quit the current game session and return to the level selection screen
+     */
+    quitToMainMenu() {
+        if (this._isQuitting) {
+            return;
+        }
+
+        this._isQuitting = true;
+
+        try { this.pauseMenu?.hide?.(); } catch { }
+        try { this.pauseUI?.hide?.(); } catch { }
+        try { this.gameUI?.hide?.(); } catch { }
+        try { this.menuUI?.hide?.(); } catch { }
+        try { this.loseComponent?.hide?.(); } catch { }
+
+        window.dispatchEvent(new CustomEvent('show-main-menu'));
+    }
+
+    /**
      * Show main menu
      */
     showMainMenu() {
@@ -445,29 +488,76 @@ class App {
             this.loseComponent.hide();
         }
 
+        // Hide pause UI if visible
+        if (this.pauseUI && this.pauseUI.isVisible) {
+            this.pauseUI.hide();
+        }
+
+        // Hide old pause menu if visible
+        if (this.pauseMenu) {
+            this.pauseMenu.hide();
+        }
+
         // Show game UI
         this.gameUI.show();
 
         // Reset health, timer, etc.
         if (this.healthUI) {
             this.healthUI.updateHealth(100, 100);
-            this.healthUI.updateLives(3, 3);
+            // Lives system disabled - using health only
+            // this.healthUI.updateLives(1, 1);
         }
 
+        // Reset and resume timer
         if (this.timerUI) {
             this.timerUI.resetTimer();
+            this.timerUI.resumeTimer();
         }
 
-        // Reset player health system
+        // Reset player health system FIRST (important - prevents game over callbacks)
         if (this.world?.eve?.health) {
             this.world.eve.health.reset();
-            this.world.eve.ready = true; // Re-enable player controls
+            console.log('Health system reset - Player is alive again');
         }
 
-        // Reset world/player position
+        // Reset world/player position and state
         if (this.world?.eve) {
-            // Reset player position to original starting position
-            this.world.eve.model.position.set(3, 0, 0);
+            // Immediately re-enable player (will be refined by resetToStartPosition)
+            this.world.eve.ready = true;
+            
+            // Use proper reset method that includes ground detection
+            if (typeof this.world.eve.resetToStartPosition === 'function') {
+                this.world.eve.resetToStartPosition();
+            } else {
+                // Fallback to manual reset if method doesn't exist
+                this.world.eve.model.position.set(3, 1, 0);
+                this.world.eve.velocityY = 0;
+            }
+            
+            // Ensure player controls are definitely enabled after all resets
+            setTimeout(() => {
+                if (this.world?.eve) {
+                    this.world.eve.ready = true;
+                    console.log('Player controls confirmed enabled after restart');
+                }
+            }, 200);
+        }
+
+        // Reset obstacles for Level 2
+        if (this.level >= 2 && this.world?.platform_two) {
+            if (this.world.platform_two.flyingCubesSpawner?.reset) {
+                this.world.platform_two.flyingCubesSpawner.reset();
+            }
+        }
+
+        // Reset obstacles for Level 3
+        if (this.level >= 3 && this.world?.platform_three) {
+            if (this.world.platform_three.flyingCubesSpawner?.reset) {
+                this.world.platform_three.flyingCubesSpawner.reset();
+            }
+            if (this.world.platform_three.laserBarrierSpawner?.reset) {
+                this.world.platform_three.laserBarrierSpawner.reset();
+            }
         }
     }
 
@@ -506,8 +596,15 @@ class App {
 
         console.log('Time has run out - showing lose screen');
 
-        // Stop the game
-        this.isGameStarted = false;
+        // Disable player controls but keep world animating
+        if (this.world?.eve) {
+            this.world.eve.ready = false;
+        }
+
+        // Stop the timer
+        if (this.timerUI) {
+            this.timerUI.pauseTimer();
+        }
 
         // Get current stats
         const stats = this.getCurrentGameStats();
@@ -525,8 +622,15 @@ class App {
 
         console.log(`Game over due to ${lossType} - showing lose screen`);
 
-        // Stop the game
-        this.isGameStarted = false;
+        // Disable player controls but keep world animating
+        if (this.world?.eve) {
+            this.world.eve.ready = false;
+        }
+
+        // Stop the timer
+        if (this.timerUI) {
+            this.timerUI.pauseTimer();
+        }
 
         // Get current stats and merge with provided stats
         const currentStats = this.getCurrentGameStats();
@@ -543,17 +647,13 @@ class App {
         const stats = {
             health: 0,
             maxHealth: 100,
-            lives: 0,
-            maxLives: 3,
             timeFormatted: '00:00'
         };
 
-        // Get health and lives from player
+        // Get health from player (lives system disabled)
         if (this.world?.eve?.health) {
             stats.health = this.world.eve.health.currentHealth;
             stats.maxHealth = this.world.eve.health.maxHealth;
-            stats.lives = this.world.eve.health.currentLives;
-            stats.maxLives = this.world.eve.health.maxLives;
         }
 
         // Get current time from timer
@@ -716,6 +816,11 @@ class App {
     }
 
     destroy() {
+        if (this._isDestroyed) {
+            return;
+        }
+        this._isDestroyed = true;
+
         try {
             // Stop render loop
             this.renderer.setAnimationLoop(null);
@@ -748,7 +853,27 @@ class App {
         } catch { }
 
         // Hide any overlays owned by App
-        this.pauseMenu?.hide();
+        try { this.pauseMenu?.hide?.(); } catch { }
+
+        // Tear down UI components
+        try { this.pauseUI?.destroy?.(); } catch { }
+        try { this.menuUI?.destroy?.(); } catch { }
+        try { this.settingsUI?.destroy?.(); } catch { }
+        try { this.ambientUI?.destroy?.(); } catch { }
+        try { this.timerUI?.destroy?.(); } catch { }
+        try { this.healthUI?.destroy?.(); } catch { }
+        try { this.gameUI?.dispose?.(); } catch { }
+        try { this.loseComponent?.dispose?.(); } catch { }
+
+        this.pauseUI = null;
+        this.menuUI = null;
+        this.settingsUI = null;
+        this.ambientUI = null;
+        this.timerUI = null;
+        this.healthUI = null;
+        this.gameUI = null;
+        this.loseComponent = null;
+        this.pauseMenu = null;
     }
 }
 

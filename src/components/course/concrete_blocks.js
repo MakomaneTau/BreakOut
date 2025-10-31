@@ -65,6 +65,9 @@ class concrete_blocks {
 			}
 		});
 
+		// Set obstacle type for collision detection
+		clone.userData.type = 'concrete_block';
+
 		this.scene.add(clone);
 		this.model = clone;
 		this.ready = true;

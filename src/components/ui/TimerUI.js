@@ -5,7 +5,7 @@ export class TimerUI {
   constructor(options = {}) {
     this.container = null;
     this.timerDisplay = null;
-    this.initialTime = options.initialTime || 210; // 3:30 in seconds (3*60 + 30)
+    this.initialTime = options.initialTime !== undefined ? options.initialTime : 180; // 3:00 in seconds (3 * 60)
     this.currentTime = this.initialTime;
     this.isRunning = true;
     this.onTimeUp = options.onTimeUp || (() => {});

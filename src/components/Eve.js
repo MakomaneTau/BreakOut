@@ -66,7 +66,7 @@ class Eve {
       maxHealth: HealthConfig.MAX_HEALTH,
       maxLives: HealthConfig.MAX_LIVES,
       permadeath: HealthConfig.PERMADEATH_MODE,
-      initialPosition: { x: 0, y: 1, z: 0 },
+      initialPosition: { x: 3, y: 1, z: 0 }, // Start position matches resetToStartPosition
       onDamage: this.onPlayerDamage.bind(this),
       onHeal: this.onPlayerHeal.bind(this),
       onDeath: this.onPlayerDeath.bind(this),
@@ -251,16 +251,18 @@ class Eve {
 
   setupKeyboardControls() {
     document.addEventListener('keydown', (event) => {
-      if (!this.ready) return;
+      if (!this.ready || !this.model) return;
       const key = event.key.toLowerCase();
       this.keyStates[key] = true;
 
       if (key === ' ') { // jump
-        if (this.onGround && !this.isJumping) {
+        // Prevent page scroll and ensure we're in a valid state
+        event.preventDefault();
+        if (this.onGround && !this.isJumping && !this.isRolling) {
           this.startJump();
         }
       } else if (key === 'shift') { // roll
-        if (this.onGround && !this.isRolling) {
+        if (this.onGround && !this.isRolling && !this.isJumping) {
           this.startRoll();
         }
       }
@@ -362,23 +364,34 @@ class Eve {
   checkCollisionAtPosition(testPosition) {
     if (!this.collider || !this.collisionManager) return false;
 
+    // Temporarily move player collider to test position
     const originalPos = this.collider.mesh.position.clone();
     this.collider.mesh.position.copy(testPosition);
     if (typeof this.collider.update === 'function') this.collider.update();
 
+    // Check for collision at test position
     const collision = this.collisionManager.findCollisionFor(this.collider);
 
+    // Restore original position
     this.collider.mesh.position.copy(originalPos);
     this.collider.update();
 
+    // Handle collision result
     if (collision) {
-      // finish line special case
+      // finish line special case - allow passing through
       if (collision.mesh.userData?.type === 'finish_line') {
         return false;
       }
+      
+      // Apply damage but block movement
       this.handleCollisionDamage(collision);
+      
+      // Return true to block movement
+      return true;
     }
-    return collision !== null;
+    
+    // No collision - allow movement
+    return false;
   }
 
   onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
@@ -395,9 +408,71 @@ class Eve {
 
   onPlayerRespawn(checkpoint, health, lives) {
     console.log(`Respawning at checkpoint with ${health} HP and ${lives} lives`);
-    if (this.model) {
-      this.model.position.set(checkpoint.x, checkpoint.y, checkpoint.z);
+    
+    // Use the same reset logic as restart button but keep the timer running
+    this.resetToStartPosition();
+    
+    // Re-enable player controls after respawn
+    this.ready = true;
+    
+    // Note: Timer is NOT reset during respawn, only during full game restart
+  }
+
+  /**
+   * Reset player to starting position with proper ground detection
+   */
+  resetToStartPosition() {
+    if (!this.model) return;
+
+    // Reset to starting position
+    const startX = 3;
+    const startZ = 0;
+    
+    // Clear all key states to prevent stuck keys
+    this.keyStates = {};
+    
+    // Reset velocity and movement states
+    this.velocityY = 0;
+    this.isJumping = false;
+    this.isRolling = false;
+    this.rollTimer = 0;
+    this.jumpTimer = 0;
+    this.onGround = true;
+    
+    // Reset rotation
+    this.model.rotation.y = -Math.PI / 2;
+    
+    // Set initial position high up for raycasting
+    this.model.position.set(startX, 10, startZ);
+    
+    // Raycast down to find ground
+    const rayOrigin = new THREE.Vector3(startX, 10, startZ);
+    this.raycaster.set(rayOrigin, this.down);
+    
+    const intersects = this.raycaster.intersectObjects(this.scene.children, true)
+      .filter(i => !this.isDescendantOf(i.object, this.model));
+    
+    if (intersects.length > 0) {
+      const groundY = intersects[0].point.y + this.footOffset;
+      this.model.position.y = groundY;
+      console.log(`Player reset to position: (${startX}, ${groundY}, ${startZ})`);
+    } else {
+      // Fallback to a safe Y position if no ground found
+      this.model.position.y = 1;
+      console.log(`Player reset to fallback position: (${startX}, 1, ${startZ})`);
     }
+    
+    // Update collider if it exists
+    if (this.collider && typeof this.collider.update === 'function') {
+      this.collider.update();
+    }
+    
+    // Reset animation to idle
+    if (this.actions.idle) {
+      this.setAction('idle');
+    }
+    
+    // Note: Don't modify this.ready here - let the caller handle it
   }
 
   onPlayerGameOver(stats) {
@@ -462,6 +537,10 @@ class Eve {
         damage = HealthConfig.TRAP_DAMAGE;
         damageType = DamageType.TRAP;
         break;
+      case 'flying_cube':
+        damage = HealthConfig.OBSTACLE_DAMAGE;
+        damageType = DamageType.OBSTACLE;
+        break;
       default:
         const name = mesh.name.toLowerCase();
         if (name.includes('blade') || name.includes('spinning')) {
@@ -470,6 +549,9 @@ class Eve {
         } else if (name.includes('laser')) {
           damage = HealthConfig.TRAP_DAMAGE;
           damageType = DamageType.TRAP;
+        } else if (name.includes('cube')) {
+          damage = HealthConfig.OBSTACLE_DAMAGE;
+          damageType = DamageType.OBSTACLE;
         }
         break;
     }
@@ -522,13 +604,32 @@ class Eve {
 
     if (groundY !== -Infinity) {
       const dist = this.model.position.y - groundY;
-      if (dist <= this.epsilon && this.velocityY <= 0) {
+      
+      // If falling and about to go through or already below the platform, snap to it
+      if (this.velocityY <= 0) {
+        // Increased tolerance to catch fast falls and prevent tunneling
+        const fallTolerance = Math.abs(this.velocityY * delta) + this.epsilon;
+        
+        if (dist <= fallTolerance) {
+          // Snap to ground level
+          this.model.position.y = groundY;
+          this.velocityY = 0;
+          this.onGround = true;
+          this.isJumping = false;
+        } else {
+          this.onGround = false;
+        }
+      } else {
+        // Player is moving upward (jumping)
+        this.onGround = false;
+      }
+      
+      // Safety clamp: Never let player fall below detected ground
+      if (this.model.position.y < groundY && this.velocityY <= 0) {
         this.model.position.y = groundY;
         this.velocityY = 0;
         this.onGround = true;
-        this.isJumping = false; // Allow unlimited jumps
-      } else {
-        this.onGround = false;
+        this.isJumping = false;
       }
     } else {
       this.onGround = false;
@@ -537,6 +638,14 @@ class Eve {
     if (!this.onGround) {
       this.velocityY -= this.gravity * delta;
       this.model.position.y += this.velocityY * delta;
+      
+      // Additional safety check after movement
+      if (groundY !== -Infinity && this.model.position.y < groundY) {
+        this.model.position.y = groundY;
+        this.velocityY = 0;
+        this.onGround = true;
+        this.isJumping = false;
+      }
     }
 
     let desiredAction = 'idle';

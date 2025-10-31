@@ -27,8 +27,13 @@ export class Collider {
       throw new Error('intersects() requires a Collider instance');
     }
 
+    // Update bounding boxes to current mesh positions
     this.update();
     other.update();
+
+    // Check if meshes still exist and are visible
+    if (!this.mesh || !other.mesh) return false;
+    if (this.mesh.visible === false || other.mesh.visible === false) return false;
 
     // Box vs Box
     if (this.box && other.box) {

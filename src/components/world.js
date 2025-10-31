@@ -30,12 +30,14 @@ class World {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
-        this.collisionManager = game.collisionManager || new CollisionManager();
-        this.wallColliders = [];
         this.level = Math.max(1, Math.min(3, parseInt(opts.level || game.level || 1)));
+        this.collisionManager = game.collisionManager || new CollisionManager(this.level);
+        this.wallColliders = [];
 
         this.tmpPos = new Vector3();
         this.ready = false;
+        this.obstaclesReady = false;
+        this._obstacleRegistrationInterval = null;
 
         // Unified structure containing prison, stairs, and platform
         this.structure = new Structure(game, {
@@ -114,44 +116,72 @@ class World {
     }
 
     registerPlatformObstacles() {
-        // Wait a bit for platform obstacles to load, then register them
-        setTimeout(() => {
-            if (this.structure && this.structure.platform) {
-                // Some builds define a helper on platform; otherwise use CollisionManager fallback
-                if (typeof this.structure.platform.registerObstaclesWithCollision === 'function') {
-                    this.structure.platform.registerObstaclesWithCollision();
-                } else if (this.collisionManager?.registerPlatformObstacles) {
-                    this.collisionManager.registerPlatformObstacles(this.structure.platform);
-                }
+        // Start polling for obstacle registration
+        let attempts = 0;
+        const maxAttempts = 50; // ~25 seconds max
+        const pollInterval = 500; // Check every 500ms
+        
+        this._obstacleRegistrationInterval = setInterval(() => {
+            attempts++;
+            
+            // Gather all platform references
+            const platforms = {
+                structure: this.structure,
+                platform_two: this.platform_two,
+                platform_three: this.platform_three
+            };
+            
+            // Try to register obstacles until registration completes
+            if (this.collisionManager && !this.collisionManager.isRegistrationComplete()) {
+                console.log(`🔄 World: Attempting obstacle registration (attempt ${attempts})...`);
+                this.collisionManager.registerObstaclesForLevel(platforms);
             }
-            if (this.level >= 2 && this.platform_two) {
-                if (typeof this.platform_two.registerObstaclesWithCollision === 'function') {
-                    this.platform_two.registerObstaclesWithCollision();
-                } else if (this.collisionManager?.registerPlatformObstacles) {
-                    this.collisionManager.registerPlatformObstacles(this.platform_two);
-                }
+            
+            // Check if registration is complete
+            if (this.collisionManager && this.collisionManager.isRegistrationComplete()) {
+                this.obstaclesReady = true;
+                clearInterval(this._obstacleRegistrationInterval);
+                this._obstacleRegistrationInterval = null;
+                console.log(`✅ World: All obstacles registered and ready! Total colliders: ${this.collisionManager.getColliderCount()}`);
+            } else if (this.collisionManager && this.collisionManager.registrationStarted) {
+                // Log progress
+                const status = this.collisionManager.getRegistrationStatus();
+                console.log(`⏳ World: Obstacle registration in progress... ${status.registered}/${status.expected} (${Math.round(status.progress * 100)}%)`);
             }
-            if (this.level >= 3 && this.platform_three) {
-                if (typeof this.platform_three.registerObstaclesWithCollision === 'function') {
-                    this.platform_three.registerObstaclesWithCollision();
-                } else if (this.collisionManager?.registerPlatformObstacles) {
-                    this.collisionManager.registerPlatformObstacles(this.platform_three);
+            
+            // Stop if max attempts reached
+            if (attempts >= maxAttempts) {
+                clearInterval(this._obstacleRegistrationInterval);
+                this._obstacleRegistrationInterval = null;
+                console.warn(`⚠️ World: Max registration attempts reached. Some obstacles may not be loaded.`);
+                if (this.collisionManager) {
+                    const status = this.collisionManager.getRegistrationStatus();
+                    console.warn(`Final status: ${status.registered}/${status.expected} obstacles registered`);
                 }
+                // Mark as ready anyway to prevent infinite wait
+                this.obstaclesReady = true;
             }
-        }, 1500); // Slightly longer delay to ensure all obstacles are loaded
+        }, pollInterval);
     }
 
  
     update(time, delta) {
         if (!this.ready) return;
-        // Example animation
-        //this.model.rotation.y += delta * 0.2;
+        
+        // Update all world components
         if (this.structure) this.structure.update(time, delta);
-        //if (this.ocean) this.ocean.update(time, delta);
-    if (this.wildIsland) this.wildIsland.update(time, delta);
-    if (this.level >= 2 && this.platform_two) this.platform_two.update(time, delta);
-    if (this.level >= 3 && this.platform_three) this.platform_three.update(time, delta);
+        if (this.wildIsland) this.wildIsland.update(time, delta);
+        if (this.level >= 2 && this.platform_two) this.platform_two.update(time, delta);
+        if (this.level >= 3 && this.platform_three) this.platform_three.update(time, delta);
 
+        // Sync dynamic obstacles every frame (flying cubes, spawned lasers)
+        if (this.collisionManager && this.collisionManager.syncDynamicObstacles) {
+            this.collisionManager.syncDynamicObstacles({
+                structure: this.structure,
+                platform_two: this.platform_two,
+                platform_three: this.platform_three
+            });
+        }
 
         if (this.eve) this.eve.update(time, delta);
     }
