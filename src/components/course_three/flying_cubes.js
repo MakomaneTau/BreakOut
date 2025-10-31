@@ -64,6 +64,17 @@ export class FlyingCubesSpawner {
         }
     }
 
+    /**
+     * Reset all cubes to their starting positions
+     */
+    reset() {
+        for (const cube of this.cubes) {
+            cube.position.copy(cube.userData.start);
+            const dir = new THREE.Vector3().subVectors(cube.userData.target, cube.position).normalize();
+            cube.userData.velocity.copy(dir.multiplyScalar(cube.userData.speed));
+        }
+    }
+
     _createCube(cfg) {
         const { start, end, speed = 0.06, color, size, scale } = cfg;
         const geometry = new THREE.BoxGeometry(1, 1, 1);
