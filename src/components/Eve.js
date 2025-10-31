@@ -604,13 +604,32 @@ class Eve {
 
     if (groundY !== -Infinity) {
       const dist = this.model.position.y - groundY;
-      if (dist <= this.epsilon && this.velocityY <= 0) {
+      
+      // If falling and about to go through or already below the platform, snap to it
+      if (this.velocityY <= 0) {
+        // Increased tolerance to catch fast falls and prevent tunneling
+        const fallTolerance = Math.abs(this.velocityY * delta) + this.epsilon;
+        
+        if (dist <= fallTolerance) {
+          // Snap to ground level
+          this.model.position.y = groundY;
+          this.velocityY = 0;
+          this.onGround = true;
+          this.isJumping = false;
+        } else {
+          this.onGround = false;
+        }
+      } else {
+        // Player is moving upward (jumping)
+        this.onGround = false;
+      }
+      
+      // Safety clamp: Never let player fall below detected ground
+      if (this.model.position.y < groundY && this.velocityY <= 0) {
         this.model.position.y = groundY;
         this.velocityY = 0;
         this.onGround = true;
-        this.isJumping = false; // Allow unlimited jumps
-      } else {
-        this.onGround = false;
+        this.isJumping = false;
       }
     } else {
       this.onGround = false;
@@ -619,6 +638,14 @@ class Eve {
     if (!this.onGround) {
       this.velocityY -= this.gravity * delta;
       this.model.position.y += this.velocityY * delta;
+      
+      // Additional safety check after movement
+      if (groundY !== -Infinity && this.model.position.y < groundY) {
+        this.model.position.y = groundY;
+        this.velocityY = 0;
+        this.onGround = true;
+        this.isJumping = false;
+      }
     }
 
     let desiredAction = 'idle';
