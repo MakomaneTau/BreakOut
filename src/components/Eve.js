@@ -580,44 +580,20 @@ class Eve {
     } else {
       // on ground & not rolling
       const rotationSpeed = 3.0;
-      if (this.keyStates['q']) {
+      if (this.keyStates['a']) {  // Rotation left
         this.model.rotation.y += rotationSpeed * delta;
       }
-      if (this.keyStates['e']) {
+      if (this.keyStates['d']) {  // Rotation right
         this.model.rotation.y -= rotationSpeed * delta;
       }
 
       const movementVector = new THREE.Vector3();
-      if (this.keyStates['w']) {
+      if (this.keyStates['w']) {  // Only forward movement
         const forward = new THREE.Vector3(0, 0, 1)
           .applyQuaternion(this.model.quaternion)
           .setY(0)
           .normalize();
         movementVector.add(forward);
-        isMoving = true;
-      }
-      if (this.keyStates['s']) {
-        const backward = new THREE.Vector3(0, 0, -1)
-          .applyQuaternion(this.model.quaternion)
-          .setY(0)
-          .normalize();
-        movementVector.add(backward);
-        isMoving = true;
-      }
-      if (this.keyStates['a']) {
-        const left = new THREE.Vector3(1, 0, 0)
-          .applyQuaternion(this.model.quaternion)
-          .setY(0)
-          .normalize();
-        movementVector.add(left);
-        isMoving = true;
-      }
-      if (this.keyStates['d']) {
-        const right = new THREE.Vector3(-1, 0, 0)
-          .applyQuaternion(this.model.quaternion)
-          .setY(0)
-          .normalize();
-        movementVector.add(right);
         isMoving = true;
       }
 
@@ -630,28 +606,9 @@ class Eve {
           this.model.position.add(movementVector);
         }
 
-        const groundType = this.detectGroundType();
-        if (groundType === 'stairs' && this.keyStates['w']) {
-          desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
-          this.model.position.y += (this.runSpeed * 0.6) * delta;
-        } else {
-          if (this.keyStates['w'] && this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
-          } else if (this.keyStates['w'] && this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
-          } else if (this.keyStates['s'] && this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('backleft') || 'BackLeft';
-          } else if (this.keyStates['s'] && this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('backright') || 'BackRight';
-          } else if (this.keyStates['w']) {
-            desiredAction = this.findActionNameMatch('run') || 'running';
-          } else if (this.keyStates['s']) {
-            desiredAction = this.findActionNameMatch('backward') || 'Backward';
-          } else if (this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('strafeleft') || 'StrafeLeft';
-          } else if (this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('straferight') || 'StrafeRight';
-          }
+        // Animation for forward movement only
+        if (this.keyStates['w']) {
+          desiredAction = this.findActionNameMatch('run') || 'running';
         }
       } else {
         desiredAction = this.findActionNameMatch('idle') || 'idle';
@@ -1125,91 +1082,4 @@ export { Eve };
 //       return; // Stop normal movement when finished
 //     }
 
-//     // Check for damage collisions (separate from movement collision)
-//     this.checkDamageCollisions();
-
-//     const rayOrigin = new THREE.Vector3(this.model.position.x, this.model.position.y + 0.5, this.model.position.z);
-//     this.raycaster.set(rayOrigin, this.down);
-
-//     const intersects = this.raycaster.intersectObjects(this.scene.children, true)
-//       .filter(i => !this.isDescendantOf(i.object, this.model));
-
-//     let groundY = -Infinity;
-//     if (intersects.length > 0) {
-//       groundY = intersects[0].point.y + this.footOffset;
-//     }
-
-//     if (groundY !== -Infinity) {
-//       const dist = this.model.position.y - groundY;
-//       if (dist <= this.epsilon && this.velocityY <= 0) {
-//         this.model.position.y = groundY;
-//         this.velocityY = 0;
-//         this.onGround = true;
-//       } else {
-//         this.onGround = false;
-//       }
-//     } else {
-//       this.onGround = false;
-//     }
-
-//     if (!this.onGround) {
-//       this.velocityY -= this.gravity * delta;
-//       this.model.position.y += this.velocityY * delta;
-//     }
-
-//     let desiredAction = 'idle';
-
-//     if (this.isRolling) {
-//       // Check collision before rolling
-//       const testPos = this.model.position.clone().addScaledVector(this.rollVelocity, delta);
-//       if (!this.checkCollisionAtPosition(testPos)) {
-//         this.model.position.addScaledVector(this.rollVelocity, delta);
-//       }
-//       this.rollTimer += delta;
-//       if (this.rollTimer >= this.rollDuration) {
-//         this.isRolling = false;
-//       }
-//       desiredAction = this.findActionNameMatch('roll') || 'QuickRoll';
-//     } else if (!this.onGround) {
-//       desiredAction = this.findActionNameMatch('jump') || 'Jump';
-//     } else if (this.keyStates['w']) {
-//       const groundType = this.detectGroundType();
-//       if (groundType === 'stairs') {
-//         desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
-//         this.model.position.y += (this.runSpeed * 0.6) * delta;
-//       } else {
-//         // Running forward with collision detection
-//         desiredAction = this.findActionNameMatch('run') || 'running';
-//         const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.model.quaternion).setY(0).normalize();
-//         const movementVector = forward.clone().multiplyScalar(this.runSpeed * delta);
-
-//         // Check collision before moving
-//         const testPos = this.model.position.clone().add(movementVector);
-//         if (!this.checkCollisionAtPosition(testPos)) {
-//           this.model.position.add(movementVector);
-//         }
-
-//         // Check for combined inputs with A or D for sliding
-//         if (this.keyStates['a']) {
-//           desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
-//         } else if (this.keyStates['d']) {
-//           desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
-//         }
-//       }
-//     }
-
-//     this.playAction(desiredAction, this.fadeDuration);
-//   }
-
-//   /**
-//    * Callback for when victory is complete
-//    */
-//   onVictory() {
-//     // This can be overridden by the game instance
-//     console.log('🏆 Victory callback - override this for game completion logic');
-//   }
-
-//   // ... (rest of the existing methods remain the same)
-// }
-
-// export { Eve };
+//     // Check for damage collisions (separate from movement)
