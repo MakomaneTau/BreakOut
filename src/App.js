@@ -20,6 +20,12 @@ import { PauseMenu } from './ui/pauseMenu.js';
 import { QualityPresets, autoSelectQuality } from './core/perfConfig.js';
 import { PerformanceManager } from './core/performance.js';
 
+const LEVEL_START_TIMES = {
+    1: 180,
+    2: 150,
+    3: 120
+};
+
 class App {
 
     initWASDControls() {
@@ -60,8 +66,10 @@ class App {
         this.healthUI = new HealthUI();
 
         // Initialize Timer UI
+        const initialTime = LEVEL_START_TIMES[this.level] ?? LEVEL_START_TIMES[1];
+
         this.timerUI = new TimerUI({
-            initialTime: 210, // 3:30 in seconds
+            initialTime,
             onTimeUp: () => {
                 console.log('Time\'s up!');
                 this.handleTimeUp();
@@ -93,7 +101,7 @@ class App {
                 this.settingsUI.show();
             },
             onQuit: () => {
-                window.close();
+                this.quitToMainMenu();
             }
         });
 
@@ -132,7 +140,7 @@ class App {
                 this.showMainMenu();
             },
             onQuit: () => {
-                window.close();
+                this.quitToMainMenu();
             }
         });
 
@@ -272,9 +280,7 @@ class App {
             onResume: () => this.setPaused(false),
             onRestart: () => window.location.reload(),
             onMainMenu: () => {
-                // Tear down and signal to show main menu
-                this.destroy();
-                window.dispatchEvent(new CustomEvent('show-main-menu'));
+                this.quitToMainMenu();
             }
         });
 
@@ -420,6 +426,25 @@ class App {
     pauseGame() {
         this.isGamePaused = true;
         this.pauseUI.show();
+    }
+
+    /**
+     * Quit the current game session and return to the level selection screen
+     */
+    quitToMainMenu() {
+        if (this._isQuitting) {
+            return;
+        }
+
+        this._isQuitting = true;
+
+        try { this.pauseMenu?.hide?.(); } catch { }
+        try { this.pauseUI?.hide?.(); } catch { }
+        try { this.gameUI?.hide?.(); } catch { }
+        try { this.menuUI?.hide?.(); } catch { }
+        try { this.loseComponent?.hide?.(); } catch { }
+
+        window.dispatchEvent(new CustomEvent('show-main-menu'));
     }
 
     /**
@@ -716,6 +741,11 @@ class App {
     }
 
     destroy() {
+        if (this._isDestroyed) {
+            return;
+        }
+        this._isDestroyed = true;
+
         try {
             // Stop render loop
             this.renderer.setAnimationLoop(null);
@@ -748,7 +778,27 @@ class App {
         } catch { }
 
         // Hide any overlays owned by App
-        this.pauseMenu?.hide();
+        try { this.pauseMenu?.hide?.(); } catch { }
+
+        // Tear down UI components
+        try { this.pauseUI?.destroy?.(); } catch { }
+        try { this.menuUI?.destroy?.(); } catch { }
+        try { this.settingsUI?.destroy?.(); } catch { }
+        try { this.ambientUI?.destroy?.(); } catch { }
+        try { this.timerUI?.destroy?.(); } catch { }
+        try { this.healthUI?.destroy?.(); } catch { }
+        try { this.gameUI?.dispose?.(); } catch { }
+        try { this.loseComponent?.dispose?.(); } catch { }
+
+        this.pauseUI = null;
+        this.menuUI = null;
+        this.settingsUI = null;
+        this.ambientUI = null;
+        this.timerUI = null;
+        this.healthUI = null;
+        this.gameUI = null;
+        this.loseComponent = null;
+        this.pauseMenu = null;
     }
 }
 
