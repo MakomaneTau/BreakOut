@@ -84,7 +84,8 @@ export class CameraUI {
     };
     
     // Button click handler
-    this.cameraButton.onclick = () => {
+    this.cameraButton.onclick = (e) => {
+      e.stopPropagation(); // Prevent event from bubbling up
       this.toggleCamera();
     };
     

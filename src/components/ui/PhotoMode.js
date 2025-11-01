@@ -65,8 +65,8 @@ export class PhotoMode {
     this.originalCameraPosition.copy(this.camera.position);
     this.originalCameraRotation.copy(this.camera.rotation);
     
-    // Pause the game
-    if (this.onPause) this.onPause();
+    // Note: We don't call onPause here to avoid showing the pause menu UI
+    // Photo mode has its own UI and controls
     
     // Create photo controls (OrbitControls for free camera movement)
     this.photoControls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -118,8 +118,7 @@ export class PhotoMode {
     // Remove keyboard listener
     document.removeEventListener('keydown', this.keyHandler);
     
-    // Resume game
-    if (this.onResume) this.onResume();
+    // Note: We don't call onResume here since we didn't call onPause
   }
   
   /**
@@ -137,6 +136,11 @@ export class PhotoMode {
    * Create photo mode UI
    */
   createUI() {
+    // Remove existing container if it exists
+    if (this.container && this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
+    
     this.container = document.createElement('div');
     this.container.id = 'photo-mode-container';
     this.container.style.cssText = `
@@ -329,12 +333,19 @@ export class PhotoMode {
     resetBtn.onclick = () => {
       effects.forEach(effect => {
         this.effects[effect.key] = effect.default;
-        const slider = this.container.querySelector(`input[type="range"]`);
-        if (slider) slider.value = effect.default;
+        // Find the slider for this specific effect
+        const sliders = this.container.querySelectorAll(`input[type="range"]`);
+        const index = effects.indexOf(effect);
+        if (sliders[index]) {
+          sliders[index].value = effect.default;
+          // Update the corresponding value display
+          const valueDisplay = sliders[index].parentElement.querySelector('span');
+          if (valueDisplay) {
+            valueDisplay.textContent = parseFloat(effect.default).toFixed(1);
+          }
+        }
       });
       this.applyEffects();
-      // Refresh UI (simplified - in real implementation, update all sliders)
-      this.createUI();
     };
     this.container.appendChild(resetBtn);
     

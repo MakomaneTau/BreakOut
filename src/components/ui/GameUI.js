@@ -387,7 +387,10 @@ export class GameUI {
       button.style.transform = 'scale(1)';
     });
 
-    button.addEventListener('click', onClick);
+    button.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent event from bubbling up
+      onClick(e);
+    });
     return button;
   }
 
