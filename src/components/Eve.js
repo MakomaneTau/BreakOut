@@ -87,8 +87,8 @@ class Eve {
     loader.setDRACOLoader(dracoLoader);
 
     loader.load(
-      // 'EveWorking.glb',
-      'workingDummy.glb',
+       'EveWorking.glb',
+      //'workingDummy.glb',
       gltf => {
         // Basic transform
         gltf.scene.scale.set(1.5, 1.5, 1.5);
@@ -583,6 +583,11 @@ class Eve {
 
     this.checkDamageCollisions();
 
+    // Check for falling off terrain (can happen anytime, before movement)
+    if (this.checkFallOffTerrain()) {
+      return; // Player died from falling off terrain
+    }
+
     // If controls disabled (e.g. during escape), skip movement
     if (this.controlsDisabled) {
       return;
@@ -647,6 +652,11 @@ class Eve {
         this.onGround = true;
         this.isJumping = false;
       }
+    }
+
+    // Check for prison landing (after ground detection, so we know if player is onGround)
+    if (this.checkPrisonLanding()) {
+      return; // Player died from landing in prison
     }
 
     let desiredAction = 'idle';
@@ -739,6 +749,107 @@ class Eve {
       }
       this.handleCollisionDamage(collision);
     }
+  }
+
+  /**
+   * Check if player is in prison bounds
+   * Prison is positioned at (-40, -19, 0) with scale (3, 3, 3)
+   */
+  isInPrisonBounds() {
+    if (!this.model) return false;
+    const pos = this.model.position;
+    
+    // Prison bounds (approximate based on position and scale)
+    // Prison position: (-40, -19, 0), scale: (3, 3, 3)
+    // Assuming prison model is roughly 10x10x10 units, scaled by 3 = 30x30x30
+    const prisonCenterX = -40;
+    const prisonCenterZ = 0;
+    const prisonSize = 30; // Approximate size after scaling
+    
+    const distX = Math.abs(pos.x - prisonCenterX);
+    const distZ = Math.abs(pos.z - prisonCenterZ);
+    
+    // Check if within horizontal bounds of prison
+    if (distX < prisonSize / 2 && distZ < prisonSize / 2) {
+      // Also check if Y is around prison level (prison is at Y = -19, so check if player is near that level)
+      if (pos.y < -15 && pos.y > -25) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Check if player is on terrain (wild_island)
+   * Terrain is positioned at (72.5, -67.5, 0) with scale (4, 4, 4)
+   */
+  isOnTerrain() {
+    if (!this.model) return false;
+    const pos = this.model.position;
+    
+    // Terrain bounds (approximate)
+    // Terrain position: (72.5, -67.5, 0), scale: (4, 4, 4)
+    // Assuming terrain is roughly 50x50 units, scaled by 4 = 200x200
+    const terrainCenterX = 72.5;
+    const terrainCenterZ = 0;
+    const terrainSize = 200;
+    
+    const distX = Math.abs(pos.x - terrainCenterX);
+    const distZ = Math.abs(pos.z - terrainCenterZ);
+    
+    // Check if within horizontal bounds of terrain
+    return distX < terrainSize / 2 && distZ < terrainSize / 2;
+  }
+
+  /**
+   * Check if player has fallen off the terrain (below safe landing areas)
+   * This should kill the player immediately
+   * 
+   * Platforms are at Y ~4, terrain is at Y ~-67.5, prison is at Y ~-19
+   * If player falls below terrain level significantly, they've fallen off completely
+   */
+  checkFallOffTerrain() {
+    if (!this.model || !this.health || !this.health.isAlive) return false;
+    
+    const pos = this.model.position;
+    // Terrain is at Y=-67.5, so if player falls significantly below that (like -75),
+    // they've fallen off terrain completely and should die immediately
+    const TERRAIN_Y = -67.5;
+    const FALL_DEATH_THRESHOLD = TERRAIN_Y - 7.5; // -75, clearly below terrain level
+    
+    // If player falls below the death threshold, kill immediately
+    // This catches falling off terrain completely
+    if (pos.y < FALL_DEATH_THRESHOLD) {
+      console.log(`Player fell off terrain at Y=${pos.y.toFixed(2)} - life goes to 0`);
+      // Set health to 0 immediately
+      this.health.currentHealth = 0;
+      this.health.die();
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Check if player landed in prison - should kill them
+   */
+  checkPrisonLanding() {
+    if (!this.model || !this.health || !this.health.isAlive) return;
+    
+    // Only check when player is on ground (has landed)
+    if (!this.onGround) return false;
+    
+    if (this.isInPrisonBounds()) {
+      // Player landed in prison - kill them
+      console.log(`Player landed in prison at (${this.model.position.x.toFixed(2)}, ${this.model.position.y.toFixed(2)}, ${this.model.position.z.toFixed(2)}) - life goes to 0`);
+      // Set health to 0 immediately
+      this.health.currentHealth = 0;
+      this.health.die();
+      return true;
+    }
+    
+    return false;
   }
 }
 
