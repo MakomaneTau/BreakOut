@@ -13,6 +13,8 @@ import { SettingsUI } from './components/ui/SettingsUI.js';
 import { LoseComponent } from './components/ui/LoseComponent.js';
 import { GameUI } from './components/ui/GameUI.js';
 import { DayNightManager } from './components/DayNightManager.js';
+import { InteractiveMap } from './components/ui/InteractiveMap.js';
+import { PhotoMode } from './components/ui/PhotoMode.js';
 
 
 
@@ -226,7 +228,27 @@ class App {
             onToggleDayNight: () => {
                 this.toggleDayNight();
             },
+            onShowMap: () => {
+                this.showInteractiveMap();
+            },
+            onTogglePhotoMode: () => {
+                this.togglePhotoMode();
+            },
             minimapData
+        });
+        
+        // Initialize Interactive Map (after gameUI is created)
+        this.interactiveMap = new InteractiveMap({
+            scene: this.scene,
+            camera: this.camera,
+            getPlayerPosition: () => {
+                const pos = this.world?.eve?.model?.position;
+                return pos ? { x: pos.x, z: pos.z } : null;
+            },
+            getExtentsByFloor: minimapData.getExtentsByFloor,
+            onClose: () => {
+                // Map closed
+            }
         });
 
         // Start with main menu visible
@@ -287,6 +309,19 @@ class App {
 
         // Dev controls for moving around the scene
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
+        
+        // Initialize Photo Mode (after renderer is ready)
+        this.photoMode = new PhotoMode({
+            scene: this.scene,
+            camera: this.camera,
+            renderer: this.renderer,
+            onPause: () => {
+                this.pauseGame();
+            },
+            onResume: () => {
+                this.resumeGame();
+            }
+        });
 
         // Pause state
         this.paused = false;
@@ -306,13 +341,21 @@ class App {
             if (e.code === 'KeyF') {
                 this.devControls.frameObject(this.scene, 1.3);
             } else if (e.code === 'KeyP') {
-                // Cycle quality preset on demand
-                const order = ['low', 'medium', 'high'];
-                let idx = order.indexOf(this.qualityPresetName);
-                idx = (idx + 1) % order.length;
-                this.qualityPresetName = order[idx];
-                this.qualityPreset = QualityPresets[this.qualityPresetName];
-                this.perf.setPreset(this.qualityPreset);
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+P for photo mode
+                    if (this.photoMode) {
+                        this.photoMode.toggle();
+                    }
+                    e.preventDefault();
+                } else {
+                    // Just P to cycle quality preset
+                    const order = ['low', 'medium', 'high'];
+                    let idx = order.indexOf(this.qualityPresetName);
+                    idx = (idx + 1) % order.length;
+                    this.qualityPresetName = order[idx];
+                    this.qualityPreset = QualityPresets[this.qualityPresetName];
+                    this.perf.setPreset(this.qualityPreset);
+                }
             } else if (e.code === 'Escape') {
                 this.setPaused(!this.paused);
             }
@@ -376,6 +419,24 @@ class App {
         // Update UI button state to match manager
         if (this.gameUI) {
             this.gameUI.setDayNightState(isNight);
+        }
+    }
+    
+    /**
+     * Show interactive map
+     */
+    showInteractiveMap() {
+        if (this.interactiveMap) {
+            this.interactiveMap.show();
+        }
+    }
+    
+    /**
+     * Toggle photo mode
+     */
+    togglePhotoMode() {
+        if (this.photoMode) {
+            this.photoMode.toggle();
         }
     }
 

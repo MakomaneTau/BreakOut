@@ -15,6 +15,8 @@ export class GameUI {
     this.onToggleFullscreen = options.onToggleFullscreen || (() => {});
     this.onToggleMute = options.onToggleMute || (() => {});
     this.onToggleDayNight = options.onToggleDayNight || (() => {});
+    this.onShowMap = options.onShowMap || (() => {});
+    this.onTogglePhotoMode = options.onTogglePhotoMode || (() => {});
     // Minimap providers
     // options.minimapData?: { getPlayerPosition:()=>({x,z}|null), getExtentsByFloor:()=>({1:[...],2:[...],3:[...]}) }
     this.minimapData = options.minimapData || null;
@@ -161,6 +163,18 @@ export class GameUI {
     dayNightBtn.title = 'Toggle Day/Night (N)';
     this.dayNightButton = dayNightBtn; // Store reference for updates
 
+    // Map button
+    const mapBtn = this.createIconButton('🗺️', () => {
+      if (this.onShowMap) this.onShowMap();
+    });
+    mapBtn.title = 'Show Map (M)';
+    
+    // Photo mode button
+    const photoBtn = this.createIconButton('📷', () => {
+      if (this.onTogglePhotoMode) this.onTogglePhotoMode();
+    });
+    photoBtn.title = 'Photo Mode (Ctrl+P)';
+
     // FPS counter (optional)
     const fpsBtn = this.createIconButton('📊', () => {
       this.toggleFPSDisplay();
@@ -170,6 +184,8 @@ export class GameUI {
     topRightPanel.appendChild(fullscreenBtn);
     topRightPanel.appendChild(muteBtn);
     topRightPanel.appendChild(dayNightBtn);
+    topRightPanel.appendChild(mapBtn);
+    topRightPanel.appendChild(photoBtn);
     topRightPanel.appendChild(fpsBtn);
 
     this.container.appendChild(topRightPanel);
@@ -404,6 +420,12 @@ export class GameUI {
           if (!e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             this.toggleDayNight();
+          }
+          break;
+        case 'KeyM':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            if (this.onShowMap) this.onShowMap();
           }
           break;
         // Removed Ctrl+R restart shortcut to avoid accidental level resets
