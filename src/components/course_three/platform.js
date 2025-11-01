@@ -4,6 +4,7 @@ import { laser_barrier, LaserBarrierSpawner } from './laser_barrier.js';
 import { FlyingCubesSpawner } from './flying_cubes.js'; // Handles repeated spawning of moving cubes
 import { concrete_blocks } from './concrete_blocks.js';
 import { createPlatformMaterial } from '../../shaders/platformShader.js';
+import { Helicopter } from '../helicopter.js';
 
 class platform {
 	constructor(game) {
@@ -13,6 +14,8 @@ class platform {
 		this.ready = false;
 		this.model = null;
 		this.shaderMaterials = []; // Store shader materials for time updates
+		this.helicopter = null; // Helicopter at finish line (will be created after platform loads)
+		this.game = game; // Store game reference for helicopter creation
 
 		this.concreteBlocks = [
 			new concrete_blocks(game, { position: [-170, 4.6, -7], scale: [6.5, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
@@ -68,6 +71,7 @@ class platform {
 			debug: false
 		});
 
+		// Helicopter will be created after platform loads to calculate its actual dimensions
 		this.load();
 	}
 
@@ -108,10 +112,49 @@ class platform {
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
 				this.ready = true;
+				
+				// Calculate platform dimensions and place helicopter at the end
+				this.positionHelicopterAtEnd();
 			},
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
 		);
+	}
+	
+	positionHelicopterAtEnd() {
+		if (!this.model) return;
+		
+		// Remove any existing helicopters first (safeguard against duplicates)
+		if (this.helicopter && this.helicopter.model) {
+			this.scene.remove(this.helicopter.model);
+			this.helicopter = null;
+		}
+		
+		// Calculate bounding box of the platform to get actual dimensions
+		const box = new THREE.Box3().setFromObject(this.model);
+		const platformMinX = box.min.x;
+		const platformMaxX = box.max.x;
+		
+		// Level 3: Platform is at -213.1, player starts at beginning of platform (around -213 to -210 area)
+		// Hardcoded player start position for level 3
+		const playerStartX = -213;
+		const distanceToMin = Math.abs(platformMinX - playerStartX);
+		const distanceToMax = Math.abs(platformMaxX - playerStartX);
+		
+		// The end is the one farther from the player start (farthest end = finish line)
+		const platformEndX = distanceToMin > distanceToMax ? platformMinX : platformMaxX;
+		
+		// Push helicopter further backwards (more negative X)
+		const helicopterOffset = -5; // Offset to push helicopter further back
+		const helicopterX = platformEndX + helicopterOffset;
+		
+		// Create helicopter at the end (only one helicopter per platform)
+		this.helicopter = new Helicopter(this.game, {
+			position: new THREE.Vector3(helicopterX, 2, 0),
+			scale: new THREE.Vector3(1, 1, 1),
+			rotation: new THREE.Euler(0, Math.PI / 2, 0)
+		});
+		console.log(`🚁 Level 3: Helicopter positioned at end of platform (X: ${helicopterX.toFixed(2)}, platform extends from ${platformMinX.toFixed(2)} to ${platformMaxX.toFixed(2)}, player starts at ${playerStartX}, offset: ${helicopterOffset})`);
 	}
 
 	update(time, delta) {
@@ -125,6 +168,10 @@ class platform {
 		if (this.flyingCubesSpawner) this.flyingCubesSpawner.update(delta); // delta already seconds
 		if (this.laserBarrierSpawner) this.laserBarrierSpawner.update(delta);
 		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.update(time, delta));
+		// Update helicopter animation
+		if (this.helicopter && this.helicopter.ready) {
+			this.helicopter.update(time, delta);
+		}
 	}
 }
 

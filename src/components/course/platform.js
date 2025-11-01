@@ -4,6 +4,7 @@ import { concrete_blocks } from './concrete_blocks.js';
 import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
 import { createPlatformMaterial } from '../../shaders/platformShader.js';
+import { Helicopter } from '../helicopter.js';
 
 class platform {
 	constructor(game, opts = {}) {
@@ -14,6 +15,8 @@ class platform {
 		this.model = null;
 		this.shaderMaterials = []; // Store shader materials for time updates
 		this.level = opts.level || game.level || 1;
+		this.helicopter = null; // Helicopter at finish line (will be created after platform loads)
+		this.game = game; // Store game reference for helicopter creation
 		
 		// Play mode (level 4) has no obstacles - skip creating them
 		if (this.level < 4) {
@@ -42,6 +45,8 @@ class platform {
 				new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
 				new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
 			];
+			
+			// Helicopter will be created after platform loads to calculate its actual dimensions
 		} else {
 			// Play mode - no obstacles
 			this.concreteBlocks = [];
@@ -88,10 +93,43 @@ class platform {
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
 				this.ready = true;
+				
+				// Calculate platform dimensions and place helicopter at the end
+				this.positionHelicopterAtEnd();
 			},
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
 		);
+	}
+	
+	positionHelicopterAtEnd() {
+		if (!this.model || this.level !== 1) return; // Only create helicopter for level 1
+		
+		// Calculate bounding box of the platform to get actual dimensions
+		const box = new THREE.Box3().setFromObject(this.model);
+		const platformMinX = box.min.x;
+		const platformMaxX = box.max.x;
+		const platformCenterX = (platformMinX + platformMaxX) / 2;
+		
+		// Player starts around x=3 (based on resetToStartPosition)
+		const playerStartX = 3;
+		
+		// Determine which end is closer to player start (that's the start of the platform)
+		const distanceToMin = Math.abs(platformMinX - playerStartX);
+		const distanceToMax = Math.abs(platformMaxX - playerStartX);
+		
+		// The end is the one farther from the player start
+		const platformEndX = distanceToMin > distanceToMax ? platformMinX : platformMaxX;
+		
+		// Only create helicopter if it doesn't exist yet (one helicopter per platform)
+		if (!this.helicopter) {
+			this.helicopter = new Helicopter(this.game, {
+				position: new THREE.Vector3(platformEndX, 8, 0),
+				scale: new THREE.Vector3(1, 1, 1),
+				rotation: new THREE.Euler(0, Math.PI / 2, 0)
+			});
+			console.log(`🚁 Level 1: Helicopter positioned at end of platform (X: ${platformEndX.toFixed(2)}, platform extends from ${platformMinX.toFixed(2)} to ${platformMaxX.toFixed(2)})`);
+		}
 	}
 
 	update(time, delta) {
@@ -111,6 +149,10 @@ class platform {
 		}
 		if (this.laserBarriers && this.laserBarriers.length > 0) {
 			this.laserBarriers.forEach(lb => lb.update(time, delta));
+		}
+		// Update helicopter animation
+		if (this.helicopter && this.helicopter.ready) {
+			this.helicopter.update(time, delta);
 		}
 	}
 }
