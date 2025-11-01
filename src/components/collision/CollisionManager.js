@@ -49,6 +49,9 @@ export class CollisionManager {
 
   // Check if a collider intersects any other collider
   findCollisionFor(collider) {
+    // Play mode (level 4) has no collision system
+    if (this.level >= 4) return null;
+    
     for (const other of this.colliders) {
       if (other === collider) continue; // skip self
       if (collider.intersects(other)) {
@@ -60,6 +63,12 @@ export class CollisionManager {
 
   // Register all wall meshes from a model as colliders
   registerWallsFromModel(model) {
+    // Play mode (level 4) has no collision system - don't register walls
+    if (this.level >= 4) {
+      console.log(`🎮 Play Mode: Skipping wall registration - no collision system`);
+      return [];
+    }
+    
     const wallColliders = [];
     
     model.traverse((child) => {
@@ -211,6 +220,9 @@ export class CollisionManager {
    * Check collision and apply damage if player hits an obstacle
    */
   checkPlayerCollisions(playerCollider, player) {
+    // Play mode (level 4) has no collision system
+    if (this.level >= 4) return null;
+    
     if (!playerCollider || !player) return null;
 
     for (const collider of this.colliders) {
@@ -240,9 +252,14 @@ export class CollisionManager {
 
   /**
    * Calculate expected obstacle count based on level
-   * @param {Object} platforms - Object containing structure, platform_two, platform_three
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four
    */
   _calculateExpectedObstacles(platforms) {
+    // Play mode (level 4) has no obstacles
+    if (this.level >= 4) {
+      return 0;
+    }
+    
     let expected = 0;
     
     // Level 1 (always present)
@@ -275,10 +292,22 @@ export class CollisionManager {
 
   /**
    * Register obstacles for the current level
-   * @param {Object} platforms - Object containing structure, platform_two, platform_three
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four
    */
   registerObstaclesForLevel(platforms) {
     if (!platforms) return;
+
+    // Play mode (level 4) has no obstacles - mark as complete immediately
+    if (this.level >= 4) {
+      if (!this.registrationStarted) {
+        this.registrationStarted = true;
+        this.expectedObstacleCount = 0;
+        this.registeredObstacleCount = 0;
+        this.registrationComplete = true;
+        console.log(`🎮 Play Mode (Level 4): No obstacles - free exploration!`);
+      }
+      return;
+    }
 
     if (!this.registrationStarted) {
       this.registrationStarted = true;

@@ -11,6 +11,7 @@ import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';
 import { platform as platform_two } from './course_two/platform.js';
 import { platform as platform_three } from './course_three/platform.js';
+import { platform as platform_four } from './course_four/platform.js';
 
 class World {
     loadSkybox() {
@@ -30,7 +31,7 @@ class World {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
-        this.level = Math.max(1, Math.min(3, parseInt(opts.level || game.level || 1)));
+        this.level = Math.max(1, Math.min(4, parseInt(opts.level || game.level || 1)));
         this.collisionManager = game.collisionManager || new CollisionManager(this.level);
         this.wallColliders = [];
 
@@ -40,7 +41,9 @@ class World {
         this._obstacleRegistrationInterval = null;
 
         // Unified structure containing prison, stairs, and platform
+        // Pass level to structure so it can handle play mode differently
         this.structure = new Structure(game, {
+            level: this.level
             // You can change the overall position/rotation/scale here
             // position: new THREE.Vector3(0, 0, 0),
             //rotation: new THREE.Euler(Math.PI, -Math.PI / 100, Math.PI),
@@ -51,8 +54,9 @@ class World {
         // Optional locations
         // this.ocean = new ocean(game);
         // Conditionally create additional courses based on level
-        this.platform_two = this.level >= 2 ? new platform_two(game) : null;
-        this.platform_three = this.level >= 3 ? new platform_three(game) : null;
+        this.platform_two = this.level >= 2 && this.level < 4 ? new platform_two(game) : null;
+        this.platform_three = this.level >= 3 && this.level < 4 ? new platform_three(game) : null;
+        this.platform_four = this.level >= 4 ? new platform_four(game) : null;
         // this.ocean = new ocean(game);
         this.wildIsland = new wild_island(game);
 
@@ -107,6 +111,12 @@ class World {
     }
 
     registerPrisonWalls() {
+        // Play mode (level 4) has no collision system - skip wall registration
+        if (this.level >= 4) {
+            console.log(`🎮 Play Mode: Skipping prison wall registration - no collision system`);
+            return;
+        }
+        
         // Wait a bit for prison to load, then register walls
         setTimeout(() => {
             if (this.structure && this.structure.prison && this.structure.prison.model) {
@@ -128,7 +138,8 @@ class World {
             const platforms = {
                 structure: this.structure,
                 platform_two: this.platform_two,
-                platform_three: this.platform_three
+                platform_three: this.platform_three,
+                platform_four: this.platform_four
             };
             
             // Try to register obstacles until registration completes
@@ -171,11 +182,12 @@ class World {
         // Update all world components
         if (this.structure) this.structure.update(time, delta);
         if (this.wildIsland) this.wildIsland.update(time, delta);
-        if (this.level >= 2 && this.platform_two) this.platform_two.update(time, delta);
-        if (this.level >= 3 && this.platform_three) this.platform_three.update(time, delta);
+        if (this.level >= 2 && this.level < 4 && this.platform_two) this.platform_two.update(time, delta);
+        if (this.level >= 3 && this.level < 4 && this.platform_three) this.platform_three.update(time, delta);
+        if (this.level >= 4 && this.platform_four) this.platform_four.update(time, delta);
 
-        // Sync dynamic obstacles every frame (flying cubes, spawned lasers)
-        if (this.collisionManager && this.collisionManager.syncDynamicObstacles) {
+        // Sync dynamic obstacles every frame (flying cubes, spawned lasers) - skip for play mode
+        if (this.collisionManager && this.collisionManager.syncDynamicObstacles && this.level < 4) {
             this.collisionManager.syncDynamicObstacles({
                 structure: this.structure,
                 platform_two: this.platform_two,

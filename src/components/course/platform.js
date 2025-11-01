@@ -6,38 +6,48 @@ import { laser_barrier } from './laser_barrier.js';
 import { createPlatformMaterial } from '../../shaders/platformShader.js';
 
 class platform {
-	constructor(game) {
+	constructor(game, opts = {}) {
 		this.assetsPath = game.assetsPath;
 		this.loadingBar = game.loadingBar;
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
 		this.shaderMaterials = []; // Store shader materials for time updates
-		this.concreteBlocks = [
-			new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [6.5, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-36, 4.6, 3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-33, 4.6, -1], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-29, 4.6, 3.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-26, 4.6, 1.5], scale: [9, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-20, 4.6, -4.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-17, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-13, 4.6, -3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-10, 4.6, 4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-6, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-2.2, 4.6, -4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-		];
+		this.level = opts.level || game.level || 1;
+		
+		// Play mode (level 4) has no obstacles - skip creating them
+		if (this.level < 4) {
+			this.concreteBlocks = [
+				new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [6.5, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-36, 4.6, 3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-33, 4.6, -1], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-29, 4.6, 3.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-26, 4.6, 1.5], scale: [9, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-20, 4.6, -4.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-17, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-13, 4.6, -3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-10, 4.6, 4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-6, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+				new concrete_blocks(game, { position: [-2.2, 4.6, -4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
+			];
 
-		this.spinningBlades = [
-			new spinning_blade(game, { position: [-26, 4.2, -3.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-			new spinning_blade(game, { position: [-2.2, 4.2, 1], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-			new spinning_blade(game, { position: [-39, 4.2, 0.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-			new spinning_blade(game, { position: [-21, 4.2, 2], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-		];
+			this.spinningBlades = [
+				new spinning_blade(game, { position: [-26, 4.2, -3.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+				new spinning_blade(game, { position: [-2.2, 4.2, 1], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+				new spinning_blade(game, { position: [-39, 4.2, 0.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+				new spinning_blade(game, { position: [-21, 4.2, 2], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
+			];
 
-		this.laserBarriers = [
-			new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
-		];
+			this.laserBarriers = [
+				new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+				new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
+			];
+		} else {
+			// Play mode - no obstacles
+			this.concreteBlocks = [];
+			this.spinningBlades = [];
+			this.laserBarriers = [];
+		}
 		this.load();
 	}
 
@@ -92,9 +102,16 @@ class platform {
 				mat.uniforms.uTime.value = time;
 			}
 		});
-		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.update(time, delta));
-		if (this.spinningBlades) this.spinningBlades.forEach(sb => sb.update(time, delta));
-		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
+		// Only update obstacles if they exist (not in play mode)
+		if (this.concreteBlocks && this.concreteBlocks.length > 0) {
+			this.concreteBlocks.forEach(cb => cb.update(time, delta));
+		}
+		if (this.spinningBlades && this.spinningBlades.length > 0) {
+			this.spinningBlades.forEach(sb => sb.update(time, delta));
+		}
+		if (this.laserBarriers && this.laserBarriers.length > 0) {
+			this.laserBarriers.forEach(lb => lb.update(time, delta));
+		}
 	}
 }
 
