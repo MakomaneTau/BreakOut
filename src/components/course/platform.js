@@ -3,6 +3,7 @@ import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
 import { concrete_blocks } from './concrete_blocks.js';
 import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
+import { createPlatformMaterial } from '../../shaders/platformShader.js';
 
 class platform {
 	constructor(game) {
@@ -11,6 +12,7 @@ class platform {
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
+		this.shaderMaterials = []; // Store shader materials for time updates
 		this.concreteBlocks = [
 			new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [6.5, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
 			new concrete_blocks(game, { position: [-36, 4.6, 3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
@@ -48,11 +50,28 @@ class platform {
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
 				gltf.scene.position.set(-21.2, 4, 0); // Adjust position as needed
 
-				// Enable shadows on platform meshes
+				// Enable shadows on platform meshes and apply shader
+				const platformMaterial = createPlatformMaterial({
+					color: new THREE.Color(0.3, 0.3, 0.35),
+					noiseScale: 0.1,
+					wearIntensity: 0.4,
+					grimeIntensity: 0.3,
+					patternScale: 0.5
+				});
+
+				// Store material reference once for time updates
+				if (platformMaterial) {
+					this.shaderMaterials.push(platformMaterial);
+				}
+
 				gltf.scene.traverse(node => {
 					if (node.isMesh) {
 						node.receiveShadow = true;
 						node.castShadow = true;
+						// Apply shader material to platform meshes
+						if (platformMaterial) {
+							node.material = platformMaterial;
+						}
 					}
 				});
 
@@ -67,6 +86,12 @@ class platform {
 
 	update(time, delta) {
 		if (!this.ready) return;
+		// Update shader time uniforms
+		this.shaderMaterials.forEach(mat => {
+			if (mat.uniforms && mat.uniforms.uTime) {
+				mat.uniforms.uTime.value = time;
+			}
+		});
 		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.update(time, delta));
 		if (this.spinningBlades) this.spinningBlades.forEach(sb => sb.update(time, delta));
 		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
