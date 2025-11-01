@@ -27,7 +27,7 @@ export class DevControls {
         // Camera view movement
         this.isFirstPerson = false; // Start with third-person
         // Third-person spherical style offset (side = x, up = y, back = z)
-        this.thirdPersonOffset = new THREE.Vector3(0, 1, -5); // default
+        this.thirdPersonOffset = new THREE.Vector3(0, 3.5, -20); // default
         this.minDistance = 1.5;
         this.maxDistance = 15;
         this.zoomSpeed = 0.6;
