@@ -65,28 +65,29 @@ class platform {
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
 				gltf.scene.position.set(-21.2, 4, 0); // Adjust position as needed
 
-				// Enable shadows on platform meshes and apply shader
-				const platformMaterial = createPlatformMaterial({
-					color: new THREE.Color(0.3, 0.3, 0.35),
-					noiseScale: 0.1,
-					wearIntensity: 0.4,
-					grimeIntensity: 0.3,
-					patternScale: 0.5
-				});
+				// Enable shadows on platform meshes
+				// Shader material application disabled - kept for future use
+				// const platformMaterial = createPlatformMaterial({
+				// 	color: new THREE.Color(0.3, 0.3, 0.35),
+				// 	noiseScale: 0.1,
+				// 	wearIntensity: 0.4,
+				// 	grimeIntensity: 0.3,
+				// 	patternScale: 0.5
+				// });
 
 				// Store material reference once for time updates
-				if (platformMaterial) {
-					this.shaderMaterials.push(platformMaterial);
-				}
+				// if (platformMaterial) {
+				// 	this.shaderMaterials.push(platformMaterial);
+				// }
 
 				gltf.scene.traverse(node => {
 					if (node.isMesh) {
 						node.receiveShadow = true;
 						node.castShadow = true;
 						// Apply shader material to platform meshes
-						if (platformMaterial) {
-							node.material = platformMaterial;
-						}
+						// if (platformMaterial) {
+						// 	node.material = platformMaterial;
+						// }
 					}
 				});
 
