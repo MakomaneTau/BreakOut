@@ -1,6 +1,7 @@
 // flying_cubes.js
 // Deterministic, looping flying cubes (no randomness)
 import * as THREE from '../../../public/libs/three137/three.module.js';
+import { TextureLoader } from '../../../public/libs/three137/three.module.js';
 
 /**
  * FlyingCubesSpawner
@@ -78,9 +79,11 @@ export class FlyingCubesSpawner {
     _createCube(cfg) {
         const { start, end, speed = 0.06, color, size, scale } = cfg;
         const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const textureLoader = new TextureLoader();
+        const grainyTexture = textureLoader.load('../../../public/textures/grainy_texture.jpg');
         const material = (this.options.useBasicMaterial
-            ? new THREE.MeshBasicMaterial({ color: cfg.color ?? this.options.color })
-            : new THREE.MeshStandardMaterial({ color: cfg.color ?? this.options.color }));
+            ? new THREE.MeshBasicMaterial({ map: grainyTexture })
+            : new THREE.MeshStandardMaterial({ map: grainyTexture }));
 
         const cube = new THREE.Mesh(geometry, material);
         cube.castShadow = true;

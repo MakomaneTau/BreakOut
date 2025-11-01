@@ -1,5 +1,6 @@
 import * as THREE from '../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
+import { TextureLoader } from '../../public/libs/three137/three.module.js';
 
 class stairs {
 	constructor(game) {
@@ -14,6 +15,8 @@ class stairs {
 	load() {
 		const loader = new GLTFLoader().setPath(`${this.assetsPath}models/stairs/`);
 		const platformLoader = new GLTFLoader().setPath(`${this.assetsPath}models/platform/`);
+		const textureLoader = new TextureLoader();
+		const woodTexture = textureLoader.load(`${this.assetsPath}textures/wood_texture.jpg`);
 
 		platformLoader.load(
 			'scene.gltf',
@@ -21,6 +24,13 @@ class stairs {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
 				gltf.scene.scale.set(0.05, 2, 0.03); // Adjust scale as needed
 				gltf.scene.position.set(0.55, -8.6, 0.4); // Adjust position as needed
+
+				// Apply wooden texture to all materials in the platform model
+				gltf.scene.traverse(child => {
+					if (child.isMesh) {
+						child.material.map = woodTexture;
+					}
+				});
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
@@ -36,6 +46,13 @@ class stairs {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
 				gltf.scene.scale.set(5, 3.5, 5); // Adjust scale as needed
 				gltf.scene.position.set(-80, -21.6, -62.9); // Adjust position as needed
+
+				// Apply wooden texture to all materials in the stairs model
+				gltf.scene.traverse(child => {
+					if (child.isMesh) {
+						child.material.map = woodTexture;
+					}
+				});
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
