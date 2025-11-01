@@ -437,6 +437,13 @@ class Eve {
         icon: icon,
         duration: 2000
       });
+      
+      // Trigger camera shake based on damage amount
+      if (this.game.cameraShake) {
+        // More damage = more shake (normalize to 0-1 range, max damage is 50)
+        const shakeIntensity = Math.min(0.6, (damage / 50) * 0.5 + 0.2);
+        this.game.cameraShake.shake(shakeIntensity, 0.4);
+      }
     }
   }
 

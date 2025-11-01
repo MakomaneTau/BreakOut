@@ -16,6 +16,7 @@ import { DayNightManager } from './components/DayNightManager.js';
 import { InteractiveMap } from './components/ui/InteractiveMap.js';
 import { PhotoMode } from './components/ui/PhotoMode.js';
 import { Toast } from './components/ui/Toast.js';
+import { CameraShake } from './utils/CameraShake.js';
 
 
 
@@ -266,6 +267,9 @@ class App {
         this.camera.position.set(0, 5, 10);
         this.camera.lookAt(0, 0, 0);
 
+        // Initialize Camera Shake system
+        this.cameraShake = new CameraShake(this.camera);
+
         // Scene + lights
         this.scene = new THREE.Scene();
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
@@ -501,7 +505,7 @@ class App {
                 const playerHealth = this.world.eve.health;
 
                 // Initial UI update
-                this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth);
+                this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth, true);
                 // Lives system disabled - using health only
                 // this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
 
@@ -509,14 +513,14 @@ class App {
                 const originalOnDamage = playerHealth.onDamage;
                 playerHealth.onDamage = (damage, health, maxHealth, damageType) => {
                     if (originalOnDamage) originalOnDamage(damage, health, maxHealth, damageType);
-                    this.healthUI.updateHealth(health, maxHealth);
+                    this.healthUI.updateHealth(health, maxHealth, true); // Enable pulse on damage
                     this.healthUI.flashDamage();
                 };
 
                 const originalOnHeal = playerHealth.onHeal;
                 playerHealth.onHeal = (amount, health, maxHealth) => {
                     if (originalOnHeal) originalOnHeal(amount, health, maxHealth);
-                    this.healthUI.updateHealth(health, maxHealth);
+                    this.healthUI.updateHealth(health, maxHealth, false); // No pulse on heal
                 };
 
                 // Lives system disabled - no need to track life lost
@@ -864,6 +868,15 @@ class App {
             // Update day/night manager
             if (this.dayNightManager) {
                 this.dayNightManager.update(dt);
+            }
+
+            // Update camera shake
+            if (this.cameraShake) {
+                // Update original position before shake applies (so shake doesn't interfere with camera following)
+                if (this.world?.eve?.model) {
+                    this.cameraShake.updateOriginalPosition();
+                }
+                this.cameraShake.update(dt);
             }
 
             // Set target object for camera controls
