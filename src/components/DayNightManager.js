@@ -100,8 +100,23 @@ export class DayNightManager {
       this.createNightEnvMapFallback();
     });
     
-    // Store skybox reference
-    this.daySkybox = this.scene.background;
+    // Store skybox reference - use current background or keep existing reference
+    // This handles the case where world.js loads skybox asynchronously
+    if (!this.daySkybox) {
+      this.daySkybox = this.scene.background;
+    }
+    
+    // If daySkybox is still null, update it periodically until world loads
+    if (!this.daySkybox) {
+      const checkSkybox = setInterval(() => {
+        if (this.scene.background && !this.daySkybox) {
+          this.daySkybox = this.scene.background;
+          clearInterval(checkSkybox);
+        }
+      }, 100);
+      // Stop checking after 5 seconds
+      setTimeout(() => clearInterval(checkSkybox), 5000);
+    }
     
     // Create night skybox proactively
     this.createNightSkybox();
@@ -154,10 +169,11 @@ export class DayNightManager {
     if (this.isNight === false && !smoothTransition) return;
     
     const targetConfig = this.config.day;
+    const wasNight = this.isNight; // Store current state before changing
     this.isNight = false;
     
     if (smoothTransition) {
-      this.startTransition(targetConfig);
+      this.startTransition(targetConfig, wasNight);
     } else {
       this.applyLighting(targetConfig);
       if (this.dayEnvMap) {
@@ -176,10 +192,11 @@ export class DayNightManager {
     if (this.isNight === true && !smoothTransition) return;
     
     const targetConfig = this.config.night;
+    const wasNight = this.isNight; // Store current state before changing
     this.isNight = true;
     
     if (smoothTransition) {
-      this.startTransition(targetConfig);
+      this.startTransition(targetConfig, wasNight);
     } else {
       this.applyLighting(targetConfig);
       if (this.nightEnvMap) {
@@ -285,15 +302,47 @@ export class DayNightManager {
   /**
    * Start smooth transition
    */
-  startTransition(targetConfig) {
+  startTransition(targetConfig, wasNight = null) {
     if (this.isTransitioning) return;
     
     this.isTransitioning = true;
     this.transitionProgress = 0;
     const startTime = performance.now();
     
-    // Store starting values
-    const startConfig = this.isNight ? this.config.night : this.config.day;
+    // Store starting values - use wasNight if provided, otherwise infer from target
+    // wasNight represents the state BEFORE the transition started (passed from setDayMode/setNightMode)
+    // If not provided, infer: if transitioning TO night, we're coming FROM day, and vice versa
+    const startingWasNight = wasNight !== null 
+      ? wasNight 
+      : (targetConfig === this.config.night ? false : true); // If target is night, start was day (false), else start was night (true)
+    const startConfig = startingWasNight ? this.config.night : this.config.day;
+    
+    // Switch skybox immediately at the start of transition
+    // This ensures it changes right away, then lighting transitions smoothly
+    if (this.isNight) {
+      // Transitioning to night - switch to black starry skybox
+      if (!this.nightSkybox) {
+        this.createNightSkybox();
+      }
+      if (this.nightSkybox) {
+        this.scene.background = this.nightSkybox;
+        console.log('🌙 Switching to night skybox');
+      } else {
+        console.warn('Night skybox not available');
+      }
+    } else {
+      // Transitioning to day
+      // Update daySkybox reference if it's null (in case world loaded after initialization)
+      if (!this.daySkybox && this.scene.background) {
+        this.daySkybox = this.scene.background;
+      }
+      if (this.daySkybox) {
+        this.scene.background = this.daySkybox;
+        console.log('☀️ Switching to day skybox');
+      } else {
+        console.warn('Day skybox not available');
+      }
+    }
     
     const animate = () => {
       const elapsed = (performance.now() - startTime) / 1000;
@@ -360,8 +409,14 @@ export class DayNightManager {
           this.scene.environment = this.dayEnvMap;
           this.scene.environmentIntensity = 1.0;
         }
+      }
+      
+      if (this.transitionProgress >= 1) {
+        this.isTransitioning = false;
+        // Ensure final state is correct
+        this.applyLighting(targetConfig);
         
-        // Switch skybox
+        // Ensure skybox is set correctly at end of transition (in case midpoint was missed)
         if (this.isNight) {
           if (!this.nightSkybox) {
             this.createNightSkybox();
@@ -372,12 +427,6 @@ export class DayNightManager {
         } else if (this.daySkybox) {
           this.scene.background = this.daySkybox;
         }
-      }
-      
-      if (this.transitionProgress >= 1) {
-        this.isTransitioning = false;
-        // Ensure final state is correct
-        this.applyLighting(targetConfig);
       } else {
         requestAnimationFrame(animate);
       }
