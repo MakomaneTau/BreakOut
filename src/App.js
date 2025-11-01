@@ -12,6 +12,7 @@ import { PauseUI } from './components/ui/PauseUI.js';
 import { SettingsUI } from './components/ui/SettingsUI.js';
 import { LoseComponent } from './components/ui/LoseComponent.js';
 import { GameUI } from './components/ui/GameUI.js';
+import { DayNightManager } from './components/DayNightManager.js';
 
 
 
@@ -222,6 +223,9 @@ class App {
             onToggleMute: (isMuted) => {
                 this.toggleMute(isMuted);
             },
+            onToggleDayNight: () => {
+                this.toggleDayNight();
+            },
             minimapData
         });
 
@@ -335,8 +339,44 @@ class App {
         this.setEnvironment();
         this.load();
 
+        // Initialize Day/Night Manager (after scene is set up)
+        this.dayNightManager = null;
+        this.initializeDayNightManager();
+
         this._onResize = this.resize.bind(this);
         window.addEventListener('resize', this._onResize);
+    }
+
+    /**
+     * Initialize Day/Night Manager
+     */
+    initializeDayNightManager() {
+        // Wait a bit for lights to be added to scene
+        setTimeout(() => {
+            this.dayNightManager = new DayNightManager(
+                this.scene,
+                this.renderer,
+                this.assetsPath
+            );
+        }, 100);
+    }
+
+    /**
+     * Toggle day/night mode
+     */
+    toggleDayNight() {
+        if (!this.dayNightManager) {
+            console.warn('DayNightManager not initialized yet');
+            return;
+        }
+        
+        // Toggle the manager and get the new state
+        const isNight = this.dayNightManager.toggle(true);
+        
+        // Update UI button state to match manager
+        if (this.gameUI) {
+            this.gameUI.setDayNightState(isNight);
+        }
     }
 
     resize() {
@@ -346,6 +386,9 @@ class App {
     }
 
     setEnvironment() {
+        // Environment map will be managed by DayNightManager
+        // This method is kept for backward compatibility but DayNightManager
+        // will handle environment map loading
         const loader = new RGBELoader().setPath(this.assetsPath);
         const pmremGen = new THREE.PMREMGenerator(this.renderer);
         pmremGen.compileEquirectangularShader();
@@ -353,7 +396,10 @@ class App {
         loader.load('hdr/venice_sunset_1k.hdr', texture => {
             const envMap = pmremGen.fromEquirectangular(texture).texture;
             pmremGen.dispose();
-            this.scene.environment = envMap;
+            // DayNightManager will set this, but set initial state here
+            if (!this.dayNightManager) {
+                this.scene.environment = envMap;
+            }
         });
     }
 
@@ -739,6 +785,11 @@ class App {
                 this.gameUI.update(dt);
             }
 
+            // Update day/night manager
+            if (this.dayNightManager) {
+                this.dayNightManager.update(dt);
+            }
+
             // Set target object for camera controls
             const eve = this.world.eve;
             if (eve && eve.model) this.devControls.setTargetObject(eve.model);
@@ -870,6 +921,9 @@ class App {
         try { this.healthUI?.destroy?.(); } catch { }
         try { this.gameUI?.dispose?.(); } catch { }
         try { this.loseComponent?.dispose?.(); } catch { }
+        
+        // Dispose day/night manager
+        try { this.dayNightManager?.dispose?.(); } catch { }
 
         this.pauseUI = null;
         this.menuUI = null;
