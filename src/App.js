@@ -15,6 +15,7 @@ import { GameUI } from './components/ui/GameUI.js';
 import { DayNightManager } from './components/DayNightManager.js';
 import { InteractiveMap } from './components/ui/InteractiveMap.js';
 import { PhotoMode } from './components/ui/PhotoMode.js';
+import { Toast } from './components/ui/Toast.js';
 
 
 
@@ -156,6 +157,9 @@ class App {
                 this.quitToMainMenu();
             }
         });
+
+        // Initialize Toast notification system
+        this.toast = new Toast();
 
         // Initialize Game UI
         // Provide minimap data providers so UI can render platforms per floor and player pointer
@@ -419,6 +423,17 @@ class App {
         // Update UI button state to match manager
         if (this.gameUI) {
             this.gameUI.setDayNightState(isNight);
+        }
+        
+        // Show toast notification
+        if (this.toast) {
+            const mode = isNight ? 'Night' : 'Day';
+            const icon = isNight ? '🌙' : '☀️';
+            this.toast.show(`Switched to ${mode} Mode`, {
+                type: 'info',
+                icon: icon,
+                duration: 2500
+            });
         }
     }
     

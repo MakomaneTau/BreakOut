@@ -11,6 +11,7 @@ class Eve {
     this.loadingBar = game.loadingBar;
     this.scene = game.scene;
     this.collisionManager = game.collisionManager;
+    this.game = game; // Store game reference for accessing toast
     this.ready = false;
     this.model = null;
 
@@ -401,6 +402,42 @@ class Eve {
 
   onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
     console.log(`Took ${damage} damage from ${damageType}. Health: ${currentHealth}/${maxHealth}`);
+    
+    // Show toast notification for obstacle hit
+    if (this.game && this.game.toast) {
+      // Get obstacle name based on damage type
+      let obstacleName = 'Obstacle';
+      let icon = '⚠️';
+      
+      switch (damageType) {
+        case DamageType.OBSTACLE:
+          obstacleName = 'Block';
+          icon = '🟫';
+          break;
+        case DamageType.TRAP:
+          obstacleName = 'Trap';
+          icon = '⚙️';
+          break;
+        case DamageType.ENEMY:
+          obstacleName = 'Enemy';
+          icon = '👾';
+          break;
+        case DamageType.FALL:
+          obstacleName = 'Fall';
+          icon = '⬇️';
+          break;
+        default:
+          obstacleName = 'Obstacle';
+          icon = '⚠️';
+          break;
+      }
+      
+      this.game.toast.show(`${icon} Hit by ${obstacleName}! -${damage} HP`, {
+        type: 'warning',
+        icon: icon,
+        duration: 2000
+      });
+    }
   }
 
   onPlayerHeal(amount, currentHealth, maxHealth) {
