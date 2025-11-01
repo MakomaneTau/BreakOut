@@ -23,7 +23,8 @@ import { PerformanceManager } from './core/performance.js';
 const LEVEL_START_TIMES = {
     1: 180,
     2: 150,
-    3: 120
+    3: 120,
+    4: null // Play mode has no timer
 };
 
 class App {
@@ -50,7 +51,7 @@ class App {
         });
     }
     constructor(opts = {}) {
-        this.level = Math.max(1, Math.min(3, parseInt(opts.level) || 1));
+        this.level = Math.max(1, Math.min(4, parseInt(opts.level) || 1));
 
         this.collisionManager = new CollisionManager();
 
@@ -69,16 +70,21 @@ class App {
             }
         });
 
-        // Initialize Timer UI
+        // Initialize Timer UI (skip for play mode)
         const initialTime = LEVEL_START_TIMES[this.level] ?? LEVEL_START_TIMES[1];
-
-        this.timerUI = new TimerUI({
-            initialTime,
-            onTimeUp: () => {
-                console.log('Time\'s up!');
-                this.handleTimeUp();
-            }
-        });
+        
+        if (initialTime !== null && this.level < 4) {
+            this.timerUI = new TimerUI({
+                initialTime,
+                onTimeUp: () => {
+                    console.log('Time\'s up!');
+                    this.handleTimeUp();
+                }
+            });
+        } else {
+            // Play mode has no timer
+            this.timerUI = null;
+        }
 
         // Initialize Ambient UI
         this.ambientUI = new AmbientUI({

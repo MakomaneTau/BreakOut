@@ -8,6 +8,7 @@ class Structure {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
+        this.level = opts.level || game.level || 1;
 
         // Root group representing the whole structure
         this.model = new THREE.Group();
@@ -22,7 +23,8 @@ class Structure {
         // Child components
         this.prison = new Prison(game);
         this.stairs = new stairs(game);
-        this.platform = new platform(game);
+        // Pass level to platform so it can skip obstacles in play mode
+        this.platform = new platform(game, { level: this.level });
     }
 
     // Convenience accessors to move the entire structure

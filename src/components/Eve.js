@@ -362,6 +362,11 @@ class Eve {
   }
 
   checkCollisionAtPosition(testPosition) {
+    // Play mode (level 4) has no collision system - always allow movement
+    if (this.collisionManager && this.collisionManager.level >= 4) {
+      return false;
+    }
+    
     if (!this.collider || !this.collisionManager) return false;
 
     // Temporarily move player collider to test position
@@ -771,6 +776,11 @@ class Eve {
   }
 
   checkDamageCollisions() {
+    // Play mode (level 4) has no collision system - skip collision checks
+    if (this.collisionManager && this.collisionManager.level >= 4) {
+      return;
+    }
+    
     if (!this.collider || !this.collisionManager || !this.health || !this.health.isAlive) return;
     this.collider.update();
     const collision = this.collisionManager.findCollisionFor(this.collider);

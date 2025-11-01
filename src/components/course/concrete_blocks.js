@@ -1,5 +1,6 @@
 import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
+import { createConcreteMaterial } from '../../shaders/concreteShader.js';
 
 class concrete_blocks {
 	static _gltf = null;
@@ -11,6 +12,7 @@ class concrete_blocks {
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
+		this.shaderMaterial = null; // Store shader material for time updates
 
 		const {
 			position = [-21.2, 1.8, 0],
@@ -57,11 +59,23 @@ class concrete_blocks {
 		clone.scale.copy(this._scale);
 		clone.position.copy(this._position);
 
-		// Enable shadows on all meshes
+		// Create concrete shader material
+		this.shaderMaterial = createConcreteMaterial({
+			color: new THREE.Color(0.6, 0.6, 0.6),
+			noiseScale: 0.1,
+			roughness: 0.8,
+			metallic: 0.1
+		});
+
+		// Enable shadows on all meshes and apply shader
 		clone.traverse(node => {
 			if (node.isMesh) {
 				node.castShadow = true;
 				node.receiveShadow = true;
+				// Apply shader material to concrete meshes
+				if (this.shaderMaterial) {
+					node.material = this.shaderMaterial;
+				}
 			}
 		});
 
@@ -75,7 +89,10 @@ class concrete_blocks {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		// Optional: animate or update platform model here
+		// Update shader time uniform
+		if (this.shaderMaterial && this.shaderMaterial.uniforms && this.shaderMaterial.uniforms.uTime) {
+			this.shaderMaterial.uniforms.uTime.value = time;
+		}
 	}
 
 	dispose() {

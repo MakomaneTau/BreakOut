@@ -1,5 +1,6 @@
 import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
+import { createConcreteMaterial } from '../../shaders/concreteShader.js';
 
 class spinning_blade {
 	constructor(game, opts = {}) {
@@ -8,6 +9,7 @@ class spinning_blade {
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
+		this.shaderMaterial = null; // Store shader material for time updates
 
 		const {
 			position = [-21.2, 1.8, 0],
@@ -37,11 +39,23 @@ class spinning_blade {
 				obj.scale.copy(this._scale);
 				obj.position.copy(this._position);
 
-				// Enable shadows on blade meshes
+				// Create concrete shader material for blade (with slight metallic look)
+				this.shaderMaterial = createConcreteMaterial({
+					color: new THREE.Color(0.7, 0.7, 0.75),
+					noiseScale: 0.15,
+					roughness: 0.6,
+					metallic: 0.3
+				});
+
+				// Enable shadows on blade meshes and apply shader
 				obj.traverse(node => {
 					if (node.isMesh) {
 						node.castShadow = true;
 						node.receiveShadow = true;
+						// Apply shader material to blade meshes
+						if (this.shaderMaterial) {
+							node.material = this.shaderMaterial;
+						}
 					}
 				});
 
@@ -65,9 +79,11 @@ class spinning_blade {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		// Optional: animate or update platform model here
+		// Update shader time uniform
+		if (this.shaderMaterial && this.shaderMaterial.uniforms && this.shaderMaterial.uniforms.uTime) {
+			this.shaderMaterial.uniforms.uTime.value = time;
+		}
 		this.model.rotation.y += delta * 9; // Spin the blade
-
 	}
 }
 
