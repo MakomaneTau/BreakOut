@@ -25,7 +25,7 @@ export class MainMenu {
           inset:0; 
           display:grid; 
           place-items:center; 
-          background-image: url('/icons/home_page_backeground.webp');
+          background-image: url('/public/icons/home_page_backeground.webp');
           background-size: cover;
           background-position: center;
           background-repeat: no-repeat;
@@ -81,7 +81,7 @@ export class MainMenu {
         return this._bgm;
       }
       if (!this._bgm) {
-        const audio = new Audio('/assets/soundtrack/stay-focused-383207.mp3');
+        const audio = new Audio('/public/assets/soundtrack/stay-focused-383207.mp3');
         audio.loop = true;
         audio.volume = 0.35;
         // Start with persisted mute state

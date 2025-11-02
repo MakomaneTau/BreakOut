@@ -10,8 +10,12 @@ class Eve {
     this.assetsPath = game.assetsPath;
     this.loadingBar = game.loadingBar;
     this.scene = game.scene;
-    this.collisionManager = game.collisionManager;
     this.game = game; // Store game reference for accessing toast
+  this.scene = game.scene;
+  this.collisionSystem = game.collisionSystem || null;
+  this.lastSafePosition = null;
+    this.collisionSystem = game.collisionSystem || null;
+    this.lastSafePosition = null;
     this.ready = false;
     this.model = null;
 
@@ -48,8 +52,6 @@ class Eve {
     this.actionDurations = {};
     this.currentAction = null;
     this.currentActionName = null;
-
-    this.collider = null;
 
     this.winAnimation = new WinAnimation({
       scene: this.scene,
@@ -126,11 +128,6 @@ class Eve {
         if (intersects.length > 0) {
           const groundY = intersects[0].point.y + this.footOffset;
           this.model.position.y = groundY;
-        }
-
-        // Collision box / collider
-        if (this.collisionManager) {
-          this.collider = this.collisionManager.add(this.model, 'box');
         }
 
         // Setup mixer & strip root motion
@@ -211,9 +208,6 @@ class Eve {
                   .normalize();
                 const candidate = this.model.position.clone().add(forward.multiplyScalar(5));
                 this.model.position.copy(candidate);
-                if (this.collider && typeof this.collider.update === 'function') {
-                  this.collider.update();
-                }
               }
             } catch (err) {
               console.error('Error applying post-roll teleport:', err);
@@ -364,89 +358,9 @@ class Eve {
     return 'road';
   }
 
-  checkCollisionAtPosition(testPosition) {
-    // Play mode (level 4) has no collision system - always allow movement
-    if (this.collisionManager && this.collisionManager.level >= 4) {
-      return false;
-    }
-    
-    if (!this.collider || !this.collisionManager) return false;
-
-    // Temporarily move player collider to test position
-    const originalPos = this.collider.mesh.position.clone();
-    this.collider.mesh.position.copy(testPosition);
-    if (typeof this.collider.update === 'function') this.collider.update();
-
-    // Check for collision at test position
-    const collision = this.collisionManager.findCollisionFor(this.collider);
-
-    // Restore original position
-    this.collider.mesh.position.copy(originalPos);
-    this.collider.update();
-
-    // Handle collision result
-    if (collision) {
-      // finish line special case - allow passing through
-      if (collision.mesh.userData?.type === 'finish_line') {
-        return false;
-      }
-      
-      // Apply damage but block movement
-      this.handleCollisionDamage(collision);
-      
-      // Return true to block movement
-      return true;
-    }
-    
-    // No collision - allow movement
-    return false;
-  }
-
   onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
     console.log(`Took ${damage} damage from ${damageType}. Health: ${currentHealth}/${maxHealth}`);
     
-    // Show toast notification for obstacle hit
-    if (this.game && this.game.toast) {
-      // Get obstacle name based on damage type
-      let obstacleName = 'Obstacle';
-      let icon = '⚠️';
-      
-      switch (damageType) {
-        case DamageType.OBSTACLE:
-          obstacleName = 'Block';
-          icon = '🟫';
-          break;
-        case DamageType.TRAP:
-          obstacleName = 'Trap';
-          icon = '⚙️';
-          break;
-        case DamageType.ENEMY:
-          obstacleName = 'Enemy';
-          icon = '👾';
-          break;
-        case DamageType.FALL:
-          obstacleName = 'Fall';
-          icon = '⬇️';
-          break;
-        default:
-          obstacleName = 'Obstacle';
-          icon = '⚠️';
-          break;
-      }
-      
-      this.game.toast.show(`${icon} Hit by ${obstacleName}! -${damage} HP`, {
-        type: 'warning',
-        icon: icon,
-        duration: 2000
-      });
-      
-      // Trigger camera shake based on damage amount
-      if (this.game.cameraShake) {
-        // More damage = more shake (normalize to 0-1 range, max damage is 50)
-        const shakeIntensity = Math.min(0.6, (damage / 50) * 0.5 + 0.2);
-        this.game.cameraShake.shake(shakeIntensity, 0.4);
-      }
-    }
   }
 
   onPlayerHeal(amount, currentHealth, maxHealth) {
@@ -513,11 +427,6 @@ class Eve {
       console.log(`Player reset to fallback position: (${startX}, 1, ${startZ})`);
     }
     
-    // Update collider if it exists
-    if (this.collider && typeof this.collider.update === 'function') {
-      this.collider.update();
-    }
-    
     // Reset animation to idle
     if (this.actions.idle) {
       this.setAction('idle');
@@ -566,61 +475,38 @@ class Eve {
     return this.winAnimation.isRunning();
   }
 
-  handleCollisionDamage(collision) {
-    if (!this.health || !this.health.isAlive) return;
-
-    const mesh = collision.mesh;
-    const obstacleType = mesh.userData?.type || this.getObstacleTypeFromName(mesh.name);
-
-    let damage = HealthConfig.OBSTACLE_DAMAGE;
-    let damageType = DamageType.OBSTACLE;
-    switch (obstacleType) {
-      case 'concrete_block':
-        damage = HealthConfig.OBSTACLE_DAMAGE;
-        damageType = DamageType.OBSTACLE;
-        break;
-      case 'spinning_blade':
-        damage = HealthConfig.TRAP_DAMAGE;
-        damageType = DamageType.TRAP;
-        break;
-      case 'laser':
-      case 'laser_barrier':
-        damage = HealthConfig.TRAP_DAMAGE;
-        damageType = DamageType.TRAP;
-        break;
-      case 'flying_cube':
-        damage = HealthConfig.OBSTACLE_DAMAGE;
-        damageType = DamageType.OBSTACLE;
-        break;
-      default:
-        const name = mesh.name.toLowerCase();
-        if (name.includes('blade') || name.includes('spinning')) {
-          damage = HealthConfig.TRAP_DAMAGE;
-          damageType = DamageType.TRAP;
-        } else if (name.includes('laser')) {
-          damage = HealthConfig.TRAP_DAMAGE;
-          damageType = DamageType.TRAP;
-        } else if (name.includes('cube')) {
-          damage = HealthConfig.OBSTACLE_DAMAGE;
-          damageType = DamageType.OBSTACLE;
-        }
-        break;
-    }
-
-    this.takeDamage(damage, damageType);
-  }
-
   getObstacleTypeFromName(name) {
     if (!name) return 'unknown';
     const lower = name.toLowerCase();
-    if (lower.includes('concrete') || lower.includes('block')) {
-      return 'concrete_block';
-    } else if (lower.includes('blade') || lower.includes('spinning')) {
-      return 'spinning_blade';
-    } else if (lower.includes('laser')) {
+    if (lower.includes('laser')) {
       return 'laser';
     }
     return 'unknown';
+  }
+
+  // Determine collider type by checking userData.type on the object or its ancestors
+  _getTypeFromHierarchy(obj) {
+    let o = obj;
+    while (o) {
+      if (o.userData && o.userData.type) return o.userData.type;
+      o = o.parent;
+    }
+    return null;
+  }
+
+  // Check if currently intersecting a laser and apply strict 20 HP damage
+  _applyLaserContactDamage() {
+    if (!this.collisionSystem || !this.model) return;
+    const hits = this.collisionSystem.getAllIntersections(this.model);
+    if (!hits || hits.length === 0) return;
+    // If any overlapping collider is a laser, apply damage once
+    for (const h of hits) {
+      const type = this._getTypeFromHierarchy(h.object);
+      if (type === 'laser') {
+        this.takeDamage(HealthConfig.OBSTACLE_DAMAGE, DamageType.OBSTACLE);
+        break;
+      }
+    }
   }
 
   update(time, delta) {
@@ -633,8 +519,6 @@ class Eve {
 
     // If controls disabled (e.g. during escape), skip movement
     if (this.controlsDisabled) {
-      // Still check collisions even when controls are disabled
-      this.checkDamageCollisions();
       return;
     }
 
@@ -702,14 +586,15 @@ class Eve {
     let desiredAction = 'idle';
     let isMoving = false;
 
-    if (this.isRolling) {
+  if (this.isRolling) {
       // roll movement
-      const deltaMove = this.rollVelocity.clone().multiplyScalar(delta);
-      const testPos = this.model.position.clone().add(deltaMove);
-      if (!this.checkCollisionAtPosition(testPos)) {
-        this.model.position.add(deltaMove);
-        if (this.collider && typeof this.collider.update === 'function') this.collider.update();
-      }
+  const deltaMove = this.rollVelocity.clone().multiplyScalar(delta);
+  const prevPos = this.model.position.clone();
+      this.model.position.add(deltaMove);
+    // Apply damage if intersecting laser at this position, then resolve
+    this._applyLaserContactDamage();
+      // Resolve horizontal collisions
+  if (this.collisionSystem) this.collisionSystem.resolveContinuous(this.model, prevPos);
       this.rollTimer += delta;
       if (this.rollTimer >= this.rollDuration) {
         this.isRolling = false;
@@ -718,7 +603,7 @@ class Eve {
     } else if (!this.onGround) {
       desiredAction = this.findActionNameMatch('jump') || 'Jump';
 
-      if (this.isJumping) {
+  if (this.isJumping) {
         // horizontal jump movement
         const singleDeltaMove = new THREE.Vector3(
           this.jumpVelocity.x * delta,
@@ -726,11 +611,11 @@ class Eve {
           this.jumpVelocity.z * delta
         );
         const doubledMove = singleDeltaMove.clone().multiplyScalar(this.jumpDistanceBoost || 1.0);
-        const testPos = this.model.position.clone().add(doubledMove);
-        if (!this.checkCollisionAtPosition(testPos)) {
-          this.model.position.add(doubledMove);
-          if (this.collider && typeof this.collider.update === 'function') this.collider.update();
-        }
+  const prevPos = this.model.position.clone();
+        this.model.position.add(doubledMove);
+  	    // Apply damage if intersecting laser at this position, then resolve
+  	    this._applyLaserContactDamage();
+  if (this.collisionSystem) this.collisionSystem.resolveContinuous(this.model, prevPos);
         this.jumpTimer += delta;
         if (this.jumpTimer >= this.jumpDuration) {
           this.isJumping = false;
@@ -740,10 +625,11 @@ class Eve {
     } else {
       // on ground & not rolling
       const rotationSpeed = 3.0;
-      if (this.keyStates['q']) {
+      // Move rotation controls from Q/E to A/D
+      if (this.keyStates['a']) {
         this.model.rotation.y += rotationSpeed * delta;
       }
-      if (this.keyStates['e']) {
+      if (this.keyStates['d']) {
         this.model.rotation.y -= rotationSpeed * delta;
       }
 
@@ -764,75 +650,60 @@ class Eve {
         movementVector.add(backward);
         isMoving = true;
       }
-      if (this.keyStates['a']) {
-        const left = new THREE.Vector3(1, 0, 0)
-          .applyQuaternion(this.model.quaternion)
-          .setY(0)
-          .normalize();
-        movementVector.add(left);
-        isMoving = true;
-      }
-      if (this.keyStates['d']) {
-        const right = new THREE.Vector3(-1, 0, 0)
-          .applyQuaternion(this.model.quaternion)
-          .setY(0)
-          .normalize();
-        movementVector.add(right);
-        isMoving = true;
-      }
+      // A/D no longer strafe; they rotate instead (handled above)
 
-      if (isMoving) {
+  if (isMoving) {
         movementVector.normalize();
         movementVector.multiplyScalar(this.runSpeed * delta);
 
-        const testPos = this.model.position.clone().add(movementVector);
-        if (!this.checkCollisionAtPosition(testPos)) {
-          this.model.position.add(movementVector);
-          // Update collider after movement to ensure collision detection works
-          if (this.collider && typeof this.collider.update === 'function') {
-            this.collider.update();
-          }
-        }
+  const prevPos = this.model.position.clone();
+        this.model.position.add(movementVector);
+    // Apply damage if intersecting laser at this position, then resolve
+    this._applyLaserContactDamage();
+  if (this.collisionSystem) this.collisionSystem.resolveContinuous(this.model, prevPos);
 
         const groundType = this.detectGroundType();
         if (groundType === 'stairs' && this.keyStates['w']) {
           desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
           this.model.position.y += (this.runSpeed * 0.6) * delta;
-          // Update collider after vertical movement on stairs
-          if (this.collider && typeof this.collider.update === 'function') {
-            this.collider.update();
-          }
         } else {
-          if (this.keyStates['w'] && this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
-          } else if (this.keyStates['w'] && this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
-          } else if (this.keyStates['s'] && this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('backleft') || 'BackLeft';
-          } else if (this.keyStates['s'] && this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('backright') || 'BackRight';
-          } else if (this.keyStates['w']) {
+          if (this.keyStates['w']) {
             desiredAction = this.findActionNameMatch('run') || 'running';
           } else if (this.keyStates['s']) {
             desiredAction = this.findActionNameMatch('backward') || 'Backward';
-          } else if (this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('strafeleft') || 'StrafeLeft';
-          } else if (this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('straferight') || 'StrafeRight';
           }
         }
       } else {
         desiredAction = this.findActionNameMatch('idle') || 'idle';
-        // Even when idle, ensure collider is updated so standing collisions are detected
-        if (this.collider && typeof this.collider.update === 'function') {
-          this.collider.update();
-        }
       }
     }
 
-    // Check for collisions after all movement updates are complete
-    // This ensures the collider position is up-to-date and standing collisions are detected
-    this.checkDamageCollisions();
+    // Idle collision handling: if something (like a flying cube) moves into the player,
+    // push the player away even if no input.
+    if (this.collisionSystem && this.model) {
+      const hit = this.collisionSystem.getFirstIntersection(this.model);
+      if (hit) {
+        // Apply damage if the collider is a laser
+        const type = this._getTypeFromHierarchy(hit.object);
+        if (type === 'laser') {
+          this.takeDamage(HealthConfig.OBSTACLE_DAMAGE, DamageType.OBSTACLE);
+        }
+        // Revert to last safe if we have one
+        if (this.lastSafePosition) {
+          this.model.position.copy(this.lastSafePosition);
+        }
+        // Push away from collider center on horizontal plane
+        const pushDir = new THREE.Vector3().subVectors(this.model.position, hit.center).setY(0);
+        if (pushDir.lengthSq() > 1e-6) {
+          pushDir.normalize().multiplyScalar(this.collisionSystem.options.pushback || 0.12);
+          this.model.position.add(pushDir);
+        }
+      } else {
+        // Record last safe position when not intersecting
+        if (!this.lastSafePosition) this.lastSafePosition = new THREE.Vector3();
+        this.lastSafePosition.copy(this.model.position);
+      }
+    }
 
     this.playAction(desiredAction, this.fadeDuration);
   }

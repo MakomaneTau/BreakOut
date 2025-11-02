@@ -25,6 +25,15 @@ class platform {
 			new laser_barrier(game, { position: [-50, 7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
 		];
 
+		// Create 3D cubes with same properties as laser barriers
+		this.laserCubes = [];
+		this.createLaserCubes([
+			{ position: [-71, 7, 0], scale: [20, 2, 0.5], name: 'laser_cube_A' },
+			{ position: [-80, 7, 0], scale: [20, 2, 0.5], name: 'laser_cube_B' },
+			{ position: [-63, 7, 0], scale: [20, 2, 0.2], name: 'laser_cube_C' },
+			{ position: [-50, 7, 0], scale: [20, 2, 0.5], name: 'laser_cube_D' }
+		]);
+
 		// Flying cubes spawner (deterministic: edit coordinates/scale below)
 		this.flyingCubesSpawner = new FlyingCubesSpawner(this.scene, {
 			color: 0xff2222,
@@ -33,16 +42,58 @@ class platform {
 			debug: false,
 			// EDIT ME: exactly 5 cubes, choose start/end coordinates, scale, and speed
 			cubeConfigs: [
-				{ start: [-80, 4.5, -4.5], end: [-42, 4.5, -4.5], scale: [1.2, 1, 3.2], speed: 0.03 },
+				{ start: [-80, 6.5, -4.5], end: [-42, 6.5, -4.5], scale: [1.2, 5, 3.2], speed: 0.03 },
 				{ start: [-80, 4.5, -1.5], end: [-42, 4.5, -1.5], scale: [1.0, 1.0, 3.0], speed: 0.04 },
-				{ start: [-80, 4.5,  0.0], end: [-42, 4.5,  0.0], scale: [1.5, 1, 2.0], speed: 0.09 },
-				{ start: [-80, 4.5,  1.8], end: [-42, 4.5,  1.8], scale: [0.9, 1, 2.4], speed: 0.06 },
-				{ start: [-80, 4.5,  4.5], end: [-42, 4.5,  4.2], scale: [1.3, 1, 3.3], speed: 0.05 },
+				{ start: [-80, 6.5,  -4.5], end: [-42, 6.5,  4.5], scale: [1.5, 5, 2.0], speed: 0.09 },
+				{ start: [-80, 6.5,  4.5], end: [-42, 6.5,  -4.5], scale: [0.9, 5, 2.4], speed: 0.06 },
+				{ start: [-80, 6.5,  4.5], end: [-42, 6.5,  4.2], scale: [1.3, 5, 3.3], speed: 0.05 },
+				{ start: [-80, 6.5,  7], end: [-42, 6.5,  7], scale: [0.2, 5, 6], speed: 0.04 },
+				{ start: [-80, 6.5,  -3], end: [-42, 6.5,  -3], scale: [1, 5, 6], speed: 0.07 },
+
 			]
 		});
 		
 		// Helicopter will be created after platform loads to calculate its actual dimensions
 		this.load();
+	}
+
+	createLaserCubes(configs) {
+		configs.forEach(config => {
+			// Create cube geometry
+			const geometry = new THREE.BoxGeometry(1, 1, 1);
+			
+			// Use an invisible collider material: fully transparent, no depth/color writes
+			const material = new THREE.MeshStandardMaterial({
+				color: 0x000000,
+				emissive: 0x000000,
+				emissiveIntensity: 0.0,
+				transparent: true,
+				opacity: 0.0,
+				metalness: 0.0,
+				roughness: 1.0
+			});
+			material.depthWrite = false;
+			material.colorWrite = false;
+			
+			const cube = new THREE.Mesh(geometry, material);
+			
+			// Apply position and scale
+			cube.position.set(config.position[0], config.position[1], config.position[2]);
+			cube.scale.set(config.scale[0], config.scale[1], config.scale[2]);
+			cube.rotation.y = Math.PI / 2;
+			
+			// Do not cast/receive shadows since it's invisible
+			cube.castShadow = false;
+			cube.receiveShadow = false;
+			
+			// Set obstacle type for collision detection
+			cube.userData.type = 'laser';
+			cube.userData.initialY = config.position[1];
+			cube.name = config.name;
+			
+			this.scene.add(cube);
+			this.laserCubes.push(cube);
+		});
 	}
 
 	load() {
@@ -180,6 +231,14 @@ class platform {
 		});
 		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
 		if (this.flyingCubesSpawner) this.flyingCubesSpawner.update(delta); // delta already seconds
+		
+		// Animate laser cubes (move up and down like laser barriers)
+		if (this.laserCubes) {
+			this.laserCubes.forEach(cube => {
+				cube.position.y = cube.userData.initialY + Math.sin(Date.now() * 0.005) * 2;
+			});
+		}
+		
 		// Update helicopter animation
 		if (this.helicopter && this.helicopter.ready) {
 			this.helicopter.update(time, delta);
