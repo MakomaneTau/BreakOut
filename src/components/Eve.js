@@ -619,10 +619,11 @@ class Eve {
     } else {
       // on ground & not rolling
       const rotationSpeed = 3.0;
-      if (this.keyStates['q']) {
+      // Move rotation controls from Q/E to A/D
+      if (this.keyStates['a']) {
         this.model.rotation.y += rotationSpeed * delta;
       }
-      if (this.keyStates['e']) {
+      if (this.keyStates['d']) {
         this.model.rotation.y -= rotationSpeed * delta;
       }
 
@@ -643,22 +644,7 @@ class Eve {
         movementVector.add(backward);
         isMoving = true;
       }
-      if (this.keyStates['a']) {
-        const left = new THREE.Vector3(1, 0, 0)
-          .applyQuaternion(this.model.quaternion)
-          .setY(0)
-          .normalize();
-        movementVector.add(left);
-        isMoving = true;
-      }
-      if (this.keyStates['d']) {
-        const right = new THREE.Vector3(-1, 0, 0)
-          .applyQuaternion(this.model.quaternion)
-          .setY(0)
-          .normalize();
-        movementVector.add(right);
-        isMoving = true;
-      }
+      // A/D no longer strafe; they rotate instead (handled above)
 
   if (isMoving) {
         movementVector.normalize();
@@ -675,22 +661,10 @@ class Eve {
           desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
           this.model.position.y += (this.runSpeed * 0.6) * delta;
         } else {
-          if (this.keyStates['w'] && this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
-          } else if (this.keyStates['w'] && this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('rightslide') || 'RightSlide';
-          } else if (this.keyStates['s'] && this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('backleft') || 'BackLeft';
-          } else if (this.keyStates['s'] && this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('backright') || 'BackRight';
-          } else if (this.keyStates['w']) {
+          if (this.keyStates['w']) {
             desiredAction = this.findActionNameMatch('run') || 'running';
           } else if (this.keyStates['s']) {
             desiredAction = this.findActionNameMatch('backward') || 'Backward';
-          } else if (this.keyStates['a']) {
-            desiredAction = this.findActionNameMatch('strafeleft') || 'StrafeLeft';
-          } else if (this.keyStates['d']) {
-            desiredAction = this.findActionNameMatch('straferight') || 'StrafeRight';
           }
         }
       } else {
