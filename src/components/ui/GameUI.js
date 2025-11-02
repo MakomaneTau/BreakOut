@@ -14,6 +14,9 @@ export class GameUI {
     this.onMainMenu = options.onMainMenu || (() => {});
     this.onToggleFullscreen = options.onToggleFullscreen || (() => {});
     this.onToggleMute = options.onToggleMute || (() => {});
+    this.onToggleDayNight = options.onToggleDayNight || (() => {});
+    this.onShowMap = options.onShowMap || (() => {});
+    this.onTogglePhotoMode = options.onTogglePhotoMode || (() => {});
     // Minimap providers
     // options.minimapData?: { getPlayerPosition:()=>({x,z}|null), getExtentsByFloor:()=>({1:[...],2:[...],3:[...]}) }
     this.minimapData = options.minimapData || null;
@@ -21,6 +24,7 @@ export class GameUI {
     // State
     this.isMuted = false;
     this.isFullscreen = false;
+    this.isNight = false;
     // Minimap state
     this._mm = {
       container: null,
@@ -152,6 +156,25 @@ export class GameUI {
     muteBtn.title = 'Toggle Sound';
     this.muteButton = muteBtn; // Store reference for updates
 
+    // Day/Night toggle button
+    const dayNightBtn = this.createIconButton('☀️', () => {
+      this.toggleDayNight();
+    });
+    dayNightBtn.title = 'Toggle Day/Night (N)';
+    this.dayNightButton = dayNightBtn; // Store reference for updates
+
+    // Map button
+    const mapBtn = this.createIconButton('🗺️', () => {
+      if (this.onShowMap) this.onShowMap();
+    });
+    mapBtn.title = 'Show Map (M)';
+    
+    // Photo mode button
+    const photoBtn = this.createIconButton('📷', () => {
+      if (this.onTogglePhotoMode) this.onTogglePhotoMode();
+    });
+    photoBtn.title = 'Photo Mode (Ctrl+P)';
+
     // FPS counter (optional)
     const fpsBtn = this.createIconButton('📊', () => {
       this.toggleFPSDisplay();
@@ -160,6 +183,9 @@ export class GameUI {
 
     topRightPanel.appendChild(fullscreenBtn);
     topRightPanel.appendChild(muteBtn);
+    topRightPanel.appendChild(dayNightBtn);
+    topRightPanel.appendChild(mapBtn);
+    topRightPanel.appendChild(photoBtn);
     topRightPanel.appendChild(fpsBtn);
 
     this.container.appendChild(topRightPanel);
@@ -361,7 +387,10 @@ export class GameUI {
       button.style.transform = 'scale(1)';
     });
 
-    button.addEventListener('click', onClick);
+    button.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent event from bubbling up
+      onClick(e);
+    });
     return button;
   }
 
@@ -388,6 +417,18 @@ export class GameUI {
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             this.toggleHelpPanel();
+          }
+          break;
+        case 'KeyN':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            this.toggleDayNight();
+          }
+          break;
+        case 'KeyM':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            if (this.onShowMap) this.onShowMap();
           }
           break;
         // Removed Ctrl+R restart shortcut to avoid accidental level resets
@@ -430,6 +471,26 @@ export class GameUI {
     if (this.helpPanel) {
       const isVisible = this.helpPanel.style.display !== 'none';
       this.helpPanel.style.display = isVisible ? 'none' : 'block';
+    }
+  }
+
+  /**
+   * Toggle day/night mode
+   */
+  toggleDayNight() {
+    // Call the callback - let the manager handle the actual toggle
+    // The callback will update us via setDayNightState
+    this.onToggleDayNight();
+  }
+
+  /**
+   * Update day/night button state (called from external system)
+   */
+  setDayNightState(isNight) {
+    this.isNight = isNight;
+    if (this.dayNightButton) {
+      this.dayNightButton.innerHTML = isNight ? '🌙' : '☀️';
+      this.dayNightButton.title = isNight ? 'Switch to Day (N)' : 'Switch to Night (N)';
     }
   }
 

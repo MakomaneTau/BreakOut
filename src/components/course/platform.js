@@ -3,7 +3,6 @@ import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
 import { concrete_blocks } from './concrete_blocks.js';
 import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
-import { createPlatformMaterial } from '../../shaders/platformShader.js';
 import { Helicopter } from '../helicopter.js';
 
 class platform {
@@ -13,7 +12,6 @@ class platform {
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
-		this.shaderMaterials = []; // Store shader materials for time updates
 		this.level = opts.level || game.level || 1;
 		this.helicopter = null; // Helicopter at finish line (will be created after platform loads)
 		this.game = game; // Store game reference for helicopter creation
@@ -65,28 +63,29 @@ class platform {
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
 				gltf.scene.position.set(-21.2, 4, 0); // Adjust position as needed
 
-				// Enable shadows on platform meshes and apply shader
-				const platformMaterial = createPlatformMaterial({
-					color: new THREE.Color(0.3, 0.3, 0.35),
-					noiseScale: 0.1,
-					wearIntensity: 0.4,
-					grimeIntensity: 0.3,
-					patternScale: 0.5
-				});
+				// Enable shadows on platform meshes
+				// Shader material application disabled - kept for future use
+				// const platformMaterial = createPlatformMaterial({
+				// 	color: new THREE.Color(0.3, 0.3, 0.35),
+				// 	noiseScale: 0.1,
+				// 	wearIntensity: 0.4,
+				// 	grimeIntensity: 0.3,
+				// 	patternScale: 0.5
+				// });
 
 				// Store material reference once for time updates
-				if (platformMaterial) {
-					this.shaderMaterials.push(platformMaterial);
-				}
+				// if (platformMaterial) {
+				// 	this.shaderMaterials.push(platformMaterial);
+				// }
 
 				gltf.scene.traverse(node => {
 					if (node.isMesh) {
 						node.receiveShadow = true;
 						node.castShadow = true;
 						// Apply shader material to platform meshes
-						if (platformMaterial) {
-							node.material = platformMaterial;
-						}
+						// if (platformMaterial) {
+						// 	node.material = platformMaterial;
+						// }
 					}
 				});
 
@@ -134,12 +133,6 @@ class platform {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		// Update shader time uniforms
-		this.shaderMaterials.forEach(mat => {
-			if (mat.uniforms && mat.uniforms.uTime) {
-				mat.uniforms.uTime.value = time;
-			}
-		});
 		// Only update obstacles if they exist (not in play mode)
 		if (this.concreteBlocks && this.concreteBlocks.length > 0) {
 			this.concreteBlocks.forEach(cb => cb.update(time, delta));

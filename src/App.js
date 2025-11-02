@@ -12,6 +12,11 @@ import { PauseUI } from './components/ui/PauseUI.js';
 import { SettingsUI } from './components/ui/SettingsUI.js';
 import { LoseComponent } from './components/ui/LoseComponent.js';
 import { GameUI } from './components/ui/GameUI.js';
+import { DayNightManager } from './components/DayNightManager.js';
+import { InteractiveMap } from './components/ui/InteractiveMap.js';
+import { PhotoMode } from './components/ui/PhotoMode.js';
+import { Toast } from './components/ui/Toast.js';
+import { CameraShake } from './utils/CameraShake.js';
 
 
 
@@ -154,6 +159,9 @@ class App {
             }
         });
 
+        // Initialize Toast notification system
+        this.toast = new Toast();
+
         // Initialize Game UI
         // Provide minimap data providers so UI can render platforms per floor and player pointer
         const minimapData = {
@@ -222,7 +230,30 @@ class App {
             onToggleMute: (isMuted) => {
                 this.toggleMute(isMuted);
             },
+            onToggleDayNight: () => {
+                this.toggleDayNight();
+            },
+            onShowMap: () => {
+                this.showInteractiveMap();
+            },
+            onTogglePhotoMode: () => {
+                this.togglePhotoMode();
+            },
             minimapData
+        });
+        
+        // Initialize Interactive Map (after gameUI is created)
+        this.interactiveMap = new InteractiveMap({
+            scene: this.scene,
+            camera: this.camera,
+            getPlayerPosition: () => {
+                const pos = this.world?.eve?.model?.position;
+                return pos ? { x: pos.x, z: pos.z } : null;
+            },
+            getExtentsByFloor: minimapData.getExtentsByFloor,
+            onClose: () => {
+                // Map closed
+            }
         });
 
         // Start with main menu visible
@@ -235,6 +266,9 @@ class App {
         );
         this.camera.position.set(0, 5, 10);
         this.camera.lookAt(0, 0, 0);
+
+        // Initialize Camera Shake system
+        this.cameraShake = new CameraShake(this.camera);
 
         // Scene + lights
         this.scene = new THREE.Scene();
@@ -283,6 +317,19 @@ class App {
 
         // Dev controls for moving around the scene
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
+        
+        // Initialize Photo Mode (after renderer is ready)
+        this.photoMode = new PhotoMode({
+            scene: this.scene,
+            camera: this.camera,
+            renderer: this.renderer,
+            onPause: () => {
+                this.pauseGame();
+            },
+            onResume: () => {
+                this.resumeGame();
+            }
+        });
 
         // Pause state
         this.paused = false;
@@ -302,13 +349,21 @@ class App {
             if (e.code === 'KeyF') {
                 this.devControls.frameObject(this.scene, 1.3);
             } else if (e.code === 'KeyP') {
-                // Cycle quality preset on demand
-                const order = ['low', 'medium', 'high'];
-                let idx = order.indexOf(this.qualityPresetName);
-                idx = (idx + 1) % order.length;
-                this.qualityPresetName = order[idx];
-                this.qualityPreset = QualityPresets[this.qualityPresetName];
-                this.perf.setPreset(this.qualityPreset);
+                if (e.ctrlKey || e.metaKey) {
+                    // Ctrl+P for photo mode
+                    if (this.photoMode) {
+                        this.photoMode.toggle();
+                    }
+                    e.preventDefault();
+                } else {
+                    // Just P to cycle quality preset
+                    const order = ['low', 'medium', 'high'];
+                    let idx = order.indexOf(this.qualityPresetName);
+                    idx = (idx + 1) % order.length;
+                    this.qualityPresetName = order[idx];
+                    this.qualityPreset = QualityPresets[this.qualityPresetName];
+                    this.perf.setPreset(this.qualityPreset);
+                }
             } else if (e.code === 'Escape') {
                 this.setPaused(!this.paused);
             }
@@ -335,8 +390,73 @@ class App {
         this.setEnvironment();
         this.load();
 
+        // Initialize Day/Night Manager (after scene is set up)
+        this.dayNightManager = null;
+        this.initializeDayNightManager();
+
         this._onResize = this.resize.bind(this);
         window.addEventListener('resize', this._onResize);
+    }
+
+    /**
+     * Initialize Day/Night Manager
+     */
+    initializeDayNightManager() {
+        // Wait a bit for lights to be added to scene
+        setTimeout(() => {
+            this.dayNightManager = new DayNightManager(
+                this.scene,
+                this.renderer,
+                this.assetsPath
+            );
+        }, 100);
+    }
+
+    /**
+     * Toggle day/night mode
+     */
+    toggleDayNight() {
+        if (!this.dayNightManager) {
+            console.warn('DayNightManager not initialized yet');
+            return;
+        }
+        
+        // Toggle the manager and get the new state
+        const isNight = this.dayNightManager.toggle(true);
+        
+        // Update UI button state to match manager
+        if (this.gameUI) {
+            this.gameUI.setDayNightState(isNight);
+        }
+        
+        // Show toast notification
+        if (this.toast) {
+            const mode = isNight ? 'Night' : 'Day';
+            const icon = isNight ? '🌙' : '☀️';
+            this.toast.show(`Switched to ${mode} Mode`, {
+                type: 'info',
+                icon: icon,
+                duration: 2500
+            });
+        }
+    }
+    
+    /**
+     * Show interactive map
+     */
+    showInteractiveMap() {
+        if (this.interactiveMap) {
+            this.interactiveMap.show();
+        }
+    }
+    
+    /**
+     * Toggle photo mode
+     */
+    togglePhotoMode() {
+        if (this.photoMode) {
+            this.photoMode.toggle();
+        }
     }
 
     resize() {
@@ -346,6 +466,9 @@ class App {
     }
 
     setEnvironment() {
+        // Environment map will be managed by DayNightManager
+        // This method is kept for backward compatibility but DayNightManager
+        // will handle environment map loading
         const loader = new RGBELoader().setPath(this.assetsPath);
         const pmremGen = new THREE.PMREMGenerator(this.renderer);
         pmremGen.compileEquirectangularShader();
@@ -353,7 +476,10 @@ class App {
         loader.load('hdr/venice_sunset_1k.hdr', texture => {
             const envMap = pmremGen.fromEquirectangular(texture).texture;
             pmremGen.dispose();
-            this.scene.environment = envMap;
+            // DayNightManager will set this, but set initial state here
+            if (!this.dayNightManager) {
+                this.scene.environment = envMap;
+            }
         });
     }
 
@@ -379,7 +505,7 @@ class App {
                 const playerHealth = this.world.eve.health;
 
                 // Initial UI update
-                this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth);
+                this.healthUI.updateHealth(playerHealth.currentHealth, playerHealth.maxHealth, true);
                 // Lives system disabled - using health only
                 // this.healthUI.updateLives(playerHealth.currentLives, playerHealth.maxLives);
 
@@ -387,14 +513,14 @@ class App {
                 const originalOnDamage = playerHealth.onDamage;
                 playerHealth.onDamage = (damage, health, maxHealth, damageType) => {
                     if (originalOnDamage) originalOnDamage(damage, health, maxHealth, damageType);
-                    this.healthUI.updateHealth(health, maxHealth);
+                    this.healthUI.updateHealth(health, maxHealth, true); // Enable pulse on damage
                     this.healthUI.flashDamage();
                 };
 
                 const originalOnHeal = playerHealth.onHeal;
                 playerHealth.onHeal = (amount, health, maxHealth) => {
                     if (originalOnHeal) originalOnHeal(amount, health, maxHealth);
-                    this.healthUI.updateHealth(health, maxHealth);
+                    this.healthUI.updateHealth(health, maxHealth, false); // No pulse on heal
                 };
 
                 // Lives system disabled - no need to track life lost
@@ -739,6 +865,20 @@ class App {
                 this.gameUI.update(dt);
             }
 
+            // Update day/night manager
+            if (this.dayNightManager) {
+                this.dayNightManager.update(dt);
+            }
+
+            // Update camera shake
+            if (this.cameraShake) {
+                // Update original position before shake applies (so shake doesn't interfere with camera following)
+                if (this.world?.eve?.model) {
+                    this.cameraShake.updateOriginalPosition();
+                }
+                this.cameraShake.update(dt);
+            }
+
             // Set target object for camera controls
             const eve = this.world.eve;
             if (eve && eve.model) this.devControls.setTargetObject(eve.model);
@@ -870,6 +1010,9 @@ class App {
         try { this.healthUI?.destroy?.(); } catch { }
         try { this.gameUI?.dispose?.(); } catch { }
         try { this.loseComponent?.dispose?.(); } catch { }
+        
+        // Dispose day/night manager
+        try { this.dayNightManager?.dispose?.(); } catch { }
 
         this.pauseUI = null;
         this.menuUI = null;

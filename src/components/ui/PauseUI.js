@@ -32,13 +32,15 @@ export class PauseUI {
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.6);
       z-index: 9999;
       display: none;
       justify-content: center;
       align-items: center;
       font-family: 'Arial', sans-serif;
-      backdrop-filter: blur(5px);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      transition: backdrop-filter 0.3s ease;
     `;
     
     // Pause content

@@ -139,15 +139,61 @@ export class HealthUI {
     
     // Add to document
     document.body.appendChild(this.container);
+    
+    // Inject CSS for pulse animation
+    this.injectPulseStyles();
+  }
+  
+  /**
+   * Inject CSS styles for health bar pulse animation
+   */
+  injectPulseStyles() {
+    if (document.getElementById('health-pulse-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'health-pulse-styles';
+    style.textContent = `
+      .health-pulse {
+        animation: healthPulse 0.6s ease-out;
+      }
+      
+      @keyframes healthPulse {
+        0% {
+          transform: scaleX(1);
+          filter: brightness(1);
+        }
+        25% {
+          transform: scaleX(1.05);
+          filter: brightness(1.5);
+        }
+        50% {
+          transform: scaleX(0.98);
+          filter: brightness(1.3);
+        }
+        75% {
+          transform: scaleX(1.02);
+          filter: brightness(1.2);
+        }
+        100% {
+          transform: scaleX(1);
+          filter: brightness(1);
+        }
+      }
+    `;
+    document.head.appendChild(style);
   }
   
   /**
    * Update health bar display
    * @param {number} current - Current health
    * @param {number} max - Maximum health
+   * @param {boolean} pulseOnChange - Whether to pulse if health changed
    */
-  updateHealth(current, max) {
+  updateHealth(current, max, pulseOnChange = false) {
     const percentage = (current / max) * 100;
+    const previousPercentage = parseFloat(this.healthBarFill.style.width) || 100;
+    const healthChanged = Math.abs(previousPercentage - percentage) > 0.1;
+    
     this.healthBarFill.style.width = `${percentage}%`;
     this.healthText.textContent = `${Math.ceil(current)} / ${max}`;
     
@@ -159,6 +205,30 @@ export class HealthUI {
     } else {
       this.healthBarFill.style.background = 'linear-gradient(to right, #4CAF50, #8BC34A)';
     }
+    
+    // Pulse animation on damage
+    if (pulseOnChange && healthChanged && percentage < previousPercentage) {
+      this.pulseHealthBar();
+    }
+  }
+  
+  /**
+   * Pulse health bar animation for damage feedback
+   */
+  pulseHealthBar() {
+    // Remove existing pulse class if any
+    this.healthBarFill.classList.remove('health-pulse');
+    
+    // Force reflow
+    void this.healthBarFill.offsetWidth;
+    
+    // Add pulse animation
+    this.healthBarFill.classList.add('health-pulse');
+    
+    // Remove after animation completes
+    setTimeout(() => {
+      this.healthBarFill.classList.remove('health-pulse');
+    }, 600);
   }
   
   /**

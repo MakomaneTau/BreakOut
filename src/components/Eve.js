@@ -11,6 +11,7 @@ class Eve {
     this.loadingBar = game.loadingBar;
     this.scene = game.scene;
     this.collisionManager = game.collisionManager;
+    this.game = game; // Store game reference for accessing toast
     this.ready = false;
     this.model = null;
 
@@ -401,6 +402,49 @@ class Eve {
 
   onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
     console.log(`Took ${damage} damage from ${damageType}. Health: ${currentHealth}/${maxHealth}`);
+    
+    // Show toast notification for obstacle hit
+    if (this.game && this.game.toast) {
+      // Get obstacle name based on damage type
+      let obstacleName = 'Obstacle';
+      let icon = '⚠️';
+      
+      switch (damageType) {
+        case DamageType.OBSTACLE:
+          obstacleName = 'Block';
+          icon = '🟫';
+          break;
+        case DamageType.TRAP:
+          obstacleName = 'Trap';
+          icon = '⚙️';
+          break;
+        case DamageType.ENEMY:
+          obstacleName = 'Enemy';
+          icon = '👾';
+          break;
+        case DamageType.FALL:
+          obstacleName = 'Fall';
+          icon = '⬇️';
+          break;
+        default:
+          obstacleName = 'Obstacle';
+          icon = '⚠️';
+          break;
+      }
+      
+      this.game.toast.show(`${icon} Hit by ${obstacleName}! -${damage} HP`, {
+        type: 'warning',
+        icon: icon,
+        duration: 2000
+      });
+      
+      // Trigger camera shake based on damage amount
+      if (this.game.cameraShake) {
+        // More damage = more shake (normalize to 0-1 range, max damage is 50)
+        const shakeIntensity = Math.min(0.6, (damage / 50) * 0.5 + 0.2);
+        this.game.cameraShake.shake(shakeIntensity, 0.4);
+      }
+    }
   }
 
   onPlayerHeal(amount, currentHealth, maxHealth) {
@@ -585,10 +629,10 @@ class Eve {
 
     this.health.update(delta);
 
-    this.checkDamageCollisions();
-
     // If controls disabled (e.g. during escape), skip movement
     if (this.controlsDisabled) {
+      // Still check collisions even when controls are disabled
+      this.checkDamageCollisions();
       return;
     }
 
@@ -742,12 +786,20 @@ class Eve {
         const testPos = this.model.position.clone().add(movementVector);
         if (!this.checkCollisionAtPosition(testPos)) {
           this.model.position.add(movementVector);
+          // Update collider after movement to ensure collision detection works
+          if (this.collider && typeof this.collider.update === 'function') {
+            this.collider.update();
+          }
         }
 
         const groundType = this.detectGroundType();
         if (groundType === 'stairs' && this.keyStates['w']) {
           desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
           this.model.position.y += (this.runSpeed * 0.6) * delta;
+          // Update collider after vertical movement on stairs
+          if (this.collider && typeof this.collider.update === 'function') {
+            this.collider.update();
+          }
         } else {
           if (this.keyStates['w'] && this.keyStates['a']) {
             desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
@@ -769,8 +821,16 @@ class Eve {
         }
       } else {
         desiredAction = this.findActionNameMatch('idle') || 'idle';
+        // Even when idle, ensure collider is updated so standing collisions are detected
+        if (this.collider && typeof this.collider.update === 'function') {
+          this.collider.update();
+        }
       }
     }
+
+    // Check for collisions after all movement updates are complete
+    // This ensures the collider position is up-to-date and standing collisions are detected
+    this.checkDamageCollisions();
 
     this.playAction(desiredAction, this.fadeDuration);
   }
