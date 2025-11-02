@@ -1,7 +1,6 @@
 import * as THREE from '../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../public/libs/three137/GLTFLoader.js';
 import { Vector3 } from '../../public/libs/three137/three.module.js';
-import { concrete_blocks } from './course/concrete_blocks.js';
 import { Structure } from './structure.js';
 import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';

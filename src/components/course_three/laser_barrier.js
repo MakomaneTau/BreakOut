@@ -136,8 +136,28 @@ export class LaserBarrierSpawner {
 				if (obj.isMesh) {
 					obj.castShadow = true;
 					obj.receiveShadow = true;
+					obj.userData.type = 'laser';
 				}
 			});
+
+			// Create accompanying 3D cube with same properties
+			const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+			const cubeMaterial = new THREE.MeshStandardMaterial({
+				color: 0xff0000,
+				emissive: 0xff0000,
+				emissiveIntensity: 0.8,
+				transparent: true,
+				opacity: 0.7,
+				metalness: 0.5,
+				roughness: 0.2
+			});
+			const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+			cube.position.copy(clone.position);
+			cube.scale.copy(baseScale);
+			cube.rotation.y = LASER_BARRIER_ROT_Y;
+			cube.castShadow = true;
+			cube.receiveShadow = true;
+			cube.userData.type = 'laser';
 
 			// compute target and velocity
 			const target = new THREE.Vector3(this.options.end[0], this.options.end[1], z);
@@ -147,10 +167,18 @@ export class LaserBarrierSpawner {
 			clone.userData.velocity = direction.multiplyScalar(speed);
 			clone.userData.target = target;
 
+			// Give cube the same movement data
+			cube.userData.velocity = direction.clone().multiplyScalar(speed);
+			cube.userData.target = target.clone();
+			cube.userData.laserBarrier = clone; // Link cube to its barrier
+
 			this.scene.add(clone);
+			this.scene.add(cube);
 			this.barriers.push(clone);
+			this.barriers.push(cube); // Add cube to barriers array too
 			newItems.push(clone);
-			if (this.options.debug) console.log('Spawned laser barrier', clone.position.toArray(), 'speed', speed);
+			newItems.push(cube);
+			if (this.options.debug) console.log('Spawned laser barrier + cube', clone.position.toArray(), 'speed', speed);
 		}
 		return newItems;
 	}

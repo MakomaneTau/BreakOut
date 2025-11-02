@@ -1,6 +1,5 @@
 import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
-import { concrete_blocks } from './concrete_blocks.js';
 import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
 
@@ -11,19 +10,6 @@ class platform {
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
-		this.concreteBlocks = [
-			new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [6.5, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-36, 4.6, 3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-33, 4.6, -1], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-29, 4.6, 3.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-26, 4.6, 1.5], scale: [9, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-20, 4.6, -4.9], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-17, 4.6, 0], scale: [12, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-13, 4.6, -3], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-10, 4.6, 4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-6, 4.6, 0], scale: [12, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-2.2, 4.6, -4], scale: [3, 1, 1], rotationY: Math.PI / 2, name: 'concrete_A' }),
-		];
 
 		this.spinningBlades = [
 			new spinning_blade(game, { position: [-26, 4.2, -3.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
@@ -32,11 +18,57 @@ class platform {
 			new spinning_blade(game, { position: [-21, 4.2, 2], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
 		];
 
+		// Add laser barriers
 		this.laserBarriers = [
 			new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
+			new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_B' })
 		];
+
+		// Create 3D cubes with same properties as laser barriers
+		this.laserCubes = [];
+		this.createLaserCubes([
+			{ position: [-10, 8.7, 0], scale: [20, 2, 2], name: 'laser_cube_A' },
+			{ position: [-32, 8.7, 0], scale: [20, 2, 2], name: 'laser_cube_B' }
+		]);
+		
 		this.load();
+	}
+
+	createLaserCubes(configs) {
+		configs.forEach(config => {
+			// Create cube geometry
+			const geometry = new THREE.BoxGeometry(1, 1, 1);
+			
+			// Create glowing laser-like material
+			const material = new THREE.MeshStandardMaterial({
+				color: 0xff0000, // Red laser color
+				emissive: 0xff0000, // Self-illuminating
+				emissiveIntensity: 0.8,
+				transparent: true,
+				opacity: 0.7,
+				metalness: 0.5,
+				roughness: 0.2
+			});
+			
+			const cube = new THREE.Mesh(geometry, material);
+			
+			// Apply position and scale
+			cube.position.set(config.position[0], config.position[1], config.position[2]);
+			cube.scale.set(config.scale[0], config.scale[1], config.scale[2]);
+			cube.rotation.y = Math.PI / 2;
+			
+			// Enable shadows
+			cube.castShadow = true;
+			cube.receiveShadow = true;
+			
+			// Set obstacle type for collision detection
+			cube.userData.type = 'laser';
+			cube.userData.initialY = config.position[1];
+			cube.name = config.name;
+			
+			this.scene.add(cube);
+			this.laserCubes.push(cube);
+		});
 	}
 
 	load() {
@@ -67,9 +99,15 @@ class platform {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.update(time, delta));
 		if (this.spinningBlades) this.spinningBlades.forEach(sb => sb.update(time, delta));
 		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
+		
+		// Animate laser cubes (move up and down like laser barriers)
+		if (this.laserCubes) {
+			this.laserCubes.forEach(cube => {
+				cube.position.y = cube.userData.initialY + Math.sin(Date.now() * 0.005) * 2;
+			});
+		}
 	}
 }
 
