@@ -44,6 +44,9 @@ class laser_barrier {
 					}
 				});
 
+				// Set obstacle type for collision detection
+				obj.userData.type = 'laser';
+
 				this.scene.add(obj);
 				this.model = obj;
 				this.ready = true;

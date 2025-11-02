@@ -61,6 +61,20 @@ export class CollisionManager {
     return null;
   }
 
+  // Check if a collider at a specific position intersects any other collider
+  findCollisionAtPosition(collider, testPosition) {
+    // Play mode (level 4) has no collision system
+    if (this.level >= 4) return null;
+    
+    for (const other of this.colliders) {
+      if (other === collider) continue; // skip self
+      if (collider.intersectsAtPosition(testPosition, other)) {
+        return other;
+      }
+    }
+    return null;
+  }
+
   // Register all wall meshes from a model as colliders
   registerWallsFromModel(model) {
     // Play mode (level 4) has no collision system - don't register walls

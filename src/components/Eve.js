@@ -41,6 +41,11 @@ class Eve {
     this.jumpDistance = 1.67;
     this.jumpDistanceBoost = 2.0;
 
+    // Pushback related (smooth pushback from flying cubes)
+    this.pushbackVelocity = new THREE.Vector3();
+    this.isPushedBack = false;
+    this.pushbackDecay = 8.0; // How quickly pushback velocity decays
+
     this.mixer = null;
     this.animations = [];
     this.actions = {};
@@ -369,17 +374,8 @@ class Eve {
     
     if (!this.collider || !this.collisionManager) return false;
 
-    // Temporarily move player collider to test position
-    const originalPos = this.collider.mesh.position.clone();
-    this.collider.mesh.position.copy(testPosition);
-    if (typeof this.collider.update === 'function') this.collider.update();
-
-    // Check for collision at test position
-    const collision = this.collisionManager.findCollisionFor(this.collider);
-
-    // Restore original position
-    this.collider.mesh.position.copy(originalPos);
-    this.collider.update();
+    // Check for collision at test position using the new method
+    const collision = this.collisionManager.findCollisionAtPosition(this.collider, testPosition);
 
     // Handle collision result
     if (collision) {
@@ -387,8 +383,17 @@ class Eve {
       if (collision.mesh.userData?.type === 'finish_line') {
         return false;
       }
+
+      // Get obstacle type
+      const obstacleType = collision.mesh.userData?.type || this.getObstacleTypeFromName(collision.mesh.name);
       
-      // Apply damage but block movement
+      // Flying cubes allow movement but apply pushback (handled separately)
+      if (obstacleType === 'flying_cube') {
+        // Allow movement, pushback will be applied in checkDamageCollisions
+        return false;
+      }
+      
+      // Apply damage for other obstacles and block movement
       this.handleCollisionDamage(collision);
       
       // Return true to block movement
@@ -443,6 +448,10 @@ class Eve {
     this.rollTimer = 0;
     this.jumpTimer = 0;
     this.onGround = true;
+    
+    // Reset pushback state
+    this.pushbackVelocity.set(0, 0, 0);
+    this.isPushedBack = false;
     
     // Reset rotation
     this.model.rotation.y = -Math.PI / 2;
@@ -526,6 +535,12 @@ class Eve {
     const mesh = collision.mesh;
     const obstacleType = mesh.userData?.type || this.getObstacleTypeFromName(mesh.name);
 
+    // Flying cubes push the player back instead of dealing damage
+    if (obstacleType === 'flying_cube') {
+      this.handleFlyingCubePushback(collision);
+      return;
+    }
+
     let damage = HealthConfig.OBSTACLE_DAMAGE;
     let damageType = DamageType.OBSTACLE;
     switch (obstacleType) {
@@ -542,10 +557,6 @@ class Eve {
         damage = HealthConfig.TRAP_DAMAGE;
         damageType = DamageType.TRAP;
         break;
-      case 'flying_cube':
-        damage = HealthConfig.OBSTACLE_DAMAGE;
-        damageType = DamageType.OBSTACLE;
-        break;
       default:
         const name = mesh.name.toLowerCase();
         if (name.includes('blade') || name.includes('spinning')) {
@@ -555,13 +566,43 @@ class Eve {
           damage = HealthConfig.TRAP_DAMAGE;
           damageType = DamageType.TRAP;
         } else if (name.includes('cube')) {
-          damage = HealthConfig.OBSTACLE_DAMAGE;
-          damageType = DamageType.OBSTACLE;
+          // Double-check: if it's a cube but wasn't caught by type, still push back
+          this.handleFlyingCubePushback(collision);
+          return;
         }
         break;
     }
 
     this.takeDamage(damage, damageType);
+  }
+
+  /**
+   * Handle pushback when player collides with a flying cube
+   * @param {Object} collision - Collision object containing the cube mesh
+   */
+  handleFlyingCubePushback(collision) {
+    if (!this.model || !collision || !collision.mesh) return;
+
+    const cube = collision.mesh;
+    const playerPos = this.model.position;
+    const cubePos = cube.position;
+
+    // Calculate pushback direction (away from cube)
+    const pushbackDir = new THREE.Vector3()
+      .subVectors(playerPos, cubePos)
+      .setY(0) // Keep pushback horizontal only
+      .normalize();
+
+    // Apply smooth pushback velocity instead of instant teleport
+    const pushbackStrength = 12.0; // Initial velocity strength
+    this.pushbackVelocity.copy(pushbackDir.multiplyScalar(pushbackStrength));
+    this.isPushedBack = true;
+
+    // Optional: Add visual/audio feedback
+    if (!this._lastPushbackLog || Date.now() - this._lastPushbackLog > 500) {
+      console.log('Player pushed back by flying cube!');
+      this._lastPushbackLog = Date.now();
+    }
   }
 
   getObstacleTypeFromName(name) {
@@ -650,6 +691,29 @@ class Eve {
         this.velocityY = 0;
         this.onGround = true;
         this.isJumping = false;
+      }
+    }
+
+    // Apply smooth pushback velocity from flying cube collisions
+    if (this.isPushedBack && this.pushbackVelocity.length() > 0.01) {
+      const pushbackMove = this.pushbackVelocity.clone().multiplyScalar(delta);
+      const testPos = this.model.position.clone().add(pushbackMove);
+      
+      // Only apply pushback if it doesn't cause collision with solid obstacles
+      if (!this.checkCollisionAtPosition(testPos)) {
+        this.model.position.add(pushbackMove);
+        if (this.collider && typeof this.collider.update === 'function') {
+          this.collider.update();
+        }
+      }
+      
+      // Decay the pushback velocity smoothly
+      this.pushbackVelocity.multiplyScalar(Math.max(0, 1 - this.pushbackDecay * delta));
+      
+      // Stop pushback when velocity is negligible
+      if (this.pushbackVelocity.length() < 0.01) {
+        this.pushbackVelocity.set(0, 0, 0);
+        this.isPushedBack = false;
       }
     }
 

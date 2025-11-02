@@ -15,28 +15,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // Begin constructing the app but keep overlay until world ready
             app = new App({ level });
             window.game = app;
-            // Poll readiness (world + eve + structure + obstacles)
+            // Poll readiness (world + eve + structure)
             const startTime = performance.now();
             const poll = () => {
                 const worldReady = app?.world?.ready;
                 const eveReady = app?.world?.eve?.ready;
                 const platformReady = app?.world?.structure?.platform?.ready !== false;
-                const obstaclesReady = app?.world?.obstaclesReady;
                 
-                const ready = worldReady && platformReady && eveReady && obstaclesReady;
+                const ready = worldReady && platformReady && eveReady;
                 
                 // progress heuristic
                 let pct = 10;
                 if (worldReady) pct += 15;
                 if (platformReady) pct += 20;
                 if (eveReady) pct += 25;
-                if (obstaclesReady) pct += 30;
-                
-                // Show obstacle registration progress
-                if (app?.world?.collisionManager && app.world.collisionManager.registrationStarted) {
-                    const obstacleProgress = app.world.collisionManager.getRegistrationProgress();
-                    pct = Math.min(98, pct + (obstacleProgress * 10));
-                }
+                // Collision/obstacle registration removed
                 
                 pct = Math.min(98, pct);
                 
@@ -45,14 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!worldReady) message = 'Loading world...';
                 else if (!platformReady) message = 'Building platforms...';
                 else if (!eveReady) message = 'Loading character...';
-                else if (!obstaclesReady) {
-                    const status = app?.world?.collisionManager?.getRegistrationStatus();
-                    if (status) {
-                        message = `Registering obstacles... ${status.registered}/${status.expected}`;
-                    } else {
-                        message = 'Registering obstacles...';
-                    }
-                } else {
+                else {
                     message = 'Launching...';
                 }
                 

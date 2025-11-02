@@ -1,60 +1,64 @@
 import * as THREE from '../../../public/libs/three137/three.module.js';
 
+/**
+ * Simple AABB collider wrapper around THREE.Box3
+ * - Call update() after the mesh moves to refresh bounds
+ * - intersects(other) returns true if AABBs overlap
+ */
 export class Collider {
   constructor(mesh, type = 'box') {
     this.mesh = mesh;
     this.type = type;
-    this.box = null;
-    this.sphere = null;
-
-    if (type === 'box') {
-      this.box = new THREE.Box3().setFromObject(this.mesh);
-    } else if (type === 'sphere') {
-      this.sphere = new THREE.Sphere();
-      new THREE.Box3().setFromObject(this.mesh).getBoundingSphere(this.sphere);
-    } else {
-      throw new Error(`Unsupported collider type: ${type}`);
-    }
+    this.box = new THREE.Box3();
+    this._tmp = new THREE.Box3();
+    this._testBox = new THREE.Box3();
+    this.update();
   }
 
+  /**
+   * Refresh the world-space bounding box from the mesh
+   */
   update() {
-    if (this.box) this.box.setFromObject(this.mesh);
-    if (this.sphere) new THREE.Box3().setFromObject(this.mesh).getBoundingSphere(this.sphere);
+    if (!this.mesh) return;
+    // setFromObject traverses children and accounts for world matrix
+    this.box.setFromObject(this.mesh);
   }
 
-  intersects(other) {
-    if (!other || !(other instanceof Collider)) {
-      throw new Error('intersects() requires a Collider instance');
-    }
+  /**
+   * Test intersection vs another collider at a specific position
+   * @param {THREE.Vector3} testPosition - Position to test at
+   * @param {Collider} other - Other collider to test against
+   */
+  intersectsAtPosition(testPosition, other) {
+    if (!other || !other.box || !this.mesh) return false;
+    
+    // Store original position
+    const originalPos = this.mesh.position.clone();
+    
+    // Temporarily move mesh to test position and compute box
+    this.mesh.position.copy(testPosition);
+    this._testBox.setFromObject(this.mesh);
+    
+    // Restore original position immediately
+    this.mesh.position.copy(originalPos);
+    
+    // Update other collider to ensure it's current
+    other.update();
+    
+    // Test intersection using the temporary test box
+    return this._testBox.intersectsBox(other.box);
+  }
 
-    // Update bounding boxes to current mesh positions
+  /**
+   * Test intersection vs another collider
+   * Ensures both boxes are up to date before testing
+   * @param {Collider} other
+   */
+  intersects(other) {
+    if (!other || !other.box) return false;
+    // Keep boxes fresh
     this.update();
     other.update();
-
-    // Check if meshes still exist and are visible
-    if (!this.mesh || !other.mesh) return false;
-    if (this.mesh.visible === false || other.mesh.visible === false) return false;
-
-    // Box vs Box
-    if (this.box && other.box) {
-      return this.box.intersectsBox(other.box);
-    }
-
-    // Sphere vs Sphere
-    if (this.sphere && other.sphere) {
-      return this.sphere.intersectsSphere(other.sphere);
-    }
-
-    // Box vs Sphere
-    if (this.box && other.sphere) {
-      return other.sphere.intersectsBox(this.box);
-    }
-
-    // Sphere vs Box
-    if (this.sphere && other.box) {
-      return this.sphere.intersectsBox(other.box);
-    }
-
-    return false;
+    return this.box.intersectsBox(other.box);
   }
 }

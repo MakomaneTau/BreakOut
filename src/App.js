@@ -3,7 +3,6 @@ import { RGBELoader } from '../public/libs/three137/RGBELoader.js';
 import { LoadingBar } from '../public/libs/LoadingBar.js';
 import { World } from './components/world.js';
 import { DevControls } from './controls/devControls.js';
-import { CollisionManager } from './components/collision/CollisionManager.js';
 import { HealthUI } from './components/ui/HealthUI.js';
 import { TimerUI } from './components/ui/TimerUI.js';
 import { AmbientUI } from './components/ui/AmbientUI.js';
@@ -57,7 +56,8 @@ class App {
     constructor(opts = {}) {
         this.level = Math.max(1, Math.min(4, parseInt(opts.level) || 1));
 
-        this.collisionManager = new CollisionManager();
+    // Collision system removed; no collision manager
+    this.collisionManager = null;
 
         const container = document.createElement('div');
         document.body.appendChild(container);
