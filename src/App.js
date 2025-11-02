@@ -350,9 +350,9 @@ class App {
                 this.devControls.frameObject(this.scene, 1.3);
             } else if (e.code === 'KeyP') {
                 if (e.ctrlKey || e.metaKey) {
-                    // Ctrl+P for photo mode
+                    // Ctrl+P for screenshot
                     if (this.photoMode) {
-                        this.photoMode.toggle();
+                        this.photoMode.takeScreenshot();
                     }
                     e.preventDefault();
                 } else {
@@ -451,11 +451,11 @@ class App {
     }
     
     /**
-     * Toggle photo mode
+     * Take a screenshot
      */
     togglePhotoMode() {
         if (this.photoMode) {
-            this.photoMode.toggle();
+            this.photoMode.takeScreenshot();
         }
     }
 
