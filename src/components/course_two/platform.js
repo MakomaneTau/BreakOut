@@ -21,10 +21,10 @@ class platform {
 		// Create 3D cubes with same properties as laser barriers
 		this.laserCubes = [];
 		this.createLaserCubes([
-			{ position: [-71, 7, 0], scale: [20, 2, 2], name: 'laser_cube_A' },
-			{ position: [-80, 7, 0], scale: [20, 2, 2], name: 'laser_cube_B' },
-			{ position: [-63, 7, 0], scale: [20, 2, 2], name: 'laser_cube_C' },
-			{ position: [-50, 7, 0], scale: [20, 2, 2], name: 'laser_cube_D' }
+			{ position: [-71, 7, 0], scale: [20, 2, 0.5], name: 'laser_cube_A' },
+			{ position: [-80, 7, 0], scale: [20, 2, 0.5], name: 'laser_cube_B' },
+			{ position: [-63, 7, 0], scale: [20, 2, 0.2], name: 'laser_cube_C' },
+			{ position: [-50, 7, 0], scale: [20, 2, 0.5], name: 'laser_cube_D' }
 		]);
 
 		// Flying cubes spawner (deterministic: edit coordinates/scale below)
@@ -35,11 +35,14 @@ class platform {
 			debug: false,
 			// EDIT ME: exactly 5 cubes, choose start/end coordinates, scale, and speed
 			cubeConfigs: [
-				{ start: [-80, 4.5, -4.5], end: [-42, 4.5, -4.5], scale: [1.2, 1, 3.2], speed: 0.03 },
+				{ start: [-80, 6.5, -4.5], end: [-42, 6.5, -4.5], scale: [1.2, 5, 3.2], speed: 0.03 },
 				{ start: [-80, 4.5, -1.5], end: [-42, 4.5, -1.5], scale: [1.0, 1.0, 3.0], speed: 0.04 },
-				{ start: [-80, 4.5,  0.0], end: [-42, 4.5,  0.0], scale: [1.5, 1, 2.0], speed: 0.09 },
-				{ start: [-80, 4.5,  1.8], end: [-42, 4.5,  1.8], scale: [0.9, 1, 2.4], speed: 0.06 },
-				{ start: [-80, 4.5,  4.5], end: [-42, 4.5,  4.2], scale: [1.3, 1, 3.3], speed: 0.05 },
+				{ start: [-80, 6.5,  -4.5], end: [-42, 6.5,  4.5], scale: [1.5, 5, 2.0], speed: 0.09 },
+				{ start: [-80, 6.5,  4.5], end: [-42, 6.5,  -4.5], scale: [0.9, 5, 2.4], speed: 0.06 },
+				{ start: [-80, 6.5,  4.5], end: [-42, 6.5,  4.2], scale: [1.3, 5, 3.3], speed: 0.05 },
+				{ start: [-80, 6.5,  7], end: [-42, 6.5,  7], scale: [0.2, 5, 6], speed: 0.04 },
+				{ start: [-80, 6.5,  -3], end: [-42, 6.5,  -3], scale: [1, 5, 6], speed: 0.07 },
+
 			]
 		});
 		this.load();

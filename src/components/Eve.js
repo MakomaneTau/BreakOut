@@ -529,10 +529,6 @@ class Eve {
     let damage = HealthConfig.OBSTACLE_DAMAGE;
     let damageType = DamageType.OBSTACLE;
     switch (obstacleType) {
-      case 'spinning_blade':
-        damage = HealthConfig.TRAP_DAMAGE;
-        damageType = DamageType.TRAP;
-        break;
       case 'laser':
       case 'laser_barrier':
         damage = HealthConfig.TRAP_DAMAGE;
@@ -544,10 +540,7 @@ class Eve {
         break;
       default:
         const name = mesh.name.toLowerCase();
-        if (name.includes('blade') || name.includes('spinning')) {
-          damage = HealthConfig.TRAP_DAMAGE;
-          damageType = DamageType.TRAP;
-        } else if (name.includes('laser')) {
+        if (name.includes('laser')) {
           damage = HealthConfig.TRAP_DAMAGE;
           damageType = DamageType.TRAP;
         } else if (name.includes('cube')) {
@@ -563,9 +556,7 @@ class Eve {
   getObstacleTypeFromName(name) {
     if (!name) return 'unknown';
     const lower = name.toLowerCase();
-    if (lower.includes('blade') || lower.includes('spinning')) {
-      return 'spinning_blade';
-    } else if (lower.includes('laser')) {
+    if (lower.includes('laser')) {
       return 'laser';
     }
     return 'unknown';
