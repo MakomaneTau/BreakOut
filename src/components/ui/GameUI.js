@@ -169,11 +169,11 @@ export class GameUI {
     });
     mapBtn.title = 'Show Map (M)';
     
-    // Photo mode button
+    // Screenshot button
     const photoBtn = this.createIconButton('📷', () => {
       if (this.onTogglePhotoMode) this.onTogglePhotoMode();
     });
-    photoBtn.title = 'Photo Mode (Ctrl+P)';
+    photoBtn.title = 'Take Screenshot (Ctrl+P)';
 
     // FPS counter (optional)
     const fpsBtn = this.createIconButton('📊', () => {

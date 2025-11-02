@@ -156,6 +156,25 @@ export class CollisionManager {
       });
     }
 
+    // Register finish line
+    if (platform.finishLine) {
+      if (platform.finishLine.ready && platform.finishLine.model) {
+        if (this.hasCollider(platform.finishLine.model)) {
+          console.log(`[${platformName}] ▶ Already registered finish line collider`);
+        } else {
+          const collider = this.add(platform.finishLine.model, 'box');
+          if (collider) {
+            registeredColliders.push(collider);
+            platformRegisteredCount++;
+            // Finish lines don't count towards obstacle count, but we track them
+            console.log(`[${platformName}] ✓ Registered finish line collider`);
+          }
+        }
+      } else {
+        console.log(`[${platformName}] ⏳ Finish line not ready yet`);
+      }
+    }
+
     console.log(`[${platformName}] Registered ${platformRegisteredCount} obstacles this attempt`);
     
     // Check if all obstacles are registered

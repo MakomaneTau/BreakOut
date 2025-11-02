@@ -350,9 +350,9 @@ class App {
                 this.devControls.frameObject(this.scene, 1.3);
             } else if (e.code === 'KeyP') {
                 if (e.ctrlKey || e.metaKey) {
-                    // Ctrl+P for photo mode
+                    // Ctrl+P for screenshot
                     if (this.photoMode) {
-                        this.photoMode.toggle();
+                        this.photoMode.takeScreenshot();
                     }
                     e.preventDefault();
                 } else {
@@ -451,11 +451,11 @@ class App {
     }
     
     /**
-     * Toggle photo mode
+     * Take a screenshot
      */
     togglePhotoMode() {
         if (this.photoMode) {
-            this.photoMode.toggle();
+            this.photoMode.takeScreenshot();
         }
     }
 
@@ -652,8 +652,49 @@ class App {
             console.log('Health system reset - Player is alive again');
         }
 
-        // Reset world/player position and state
+        // Reset win animation and helicopter escape states
         if (this.world?.eve) {
+            // Stop and cleanup win animation if it's running
+            if (this.world.eve.winAnimation) {
+                if (this.world.eve.winAnimation.isRunning()) {
+                    this.world.eve.winAnimation.stop();
+                }
+                
+                // Hide mission popup if visible
+                if (this.world.eve.winAnimation.missionPopup) {
+                    this.world.eve.winAnimation.missionPopup.hide();
+                }
+                
+                // Force cleanup to ensure everything is reset
+                if (this.world.eve.winAnimation.forceCleanup) {
+                    this.world.eve.winAnimation.forceCleanup();
+                } else {
+                    this.world.eve.winAnimation.cleanup();
+                }
+                
+                // Cleanup helicopter escape sequence
+                if (this.world.eve.winAnimation.helicopterEscape) {
+                    this.world.eve.winAnimation.helicopterEscape.cleanup();
+                }
+            }
+            
+            // Reset win trigger flag
+            this.world.eve.winTriggered = false;
+            
+            // Re-enable character controls (may have been disabled during win sequence)
+            this.world.eve.controlsDisabled = false;
+            
+            // Restore movement properties that may have been modified during win sequence
+            if (this.world.eve.runSpeed === 0) {
+                this.world.eve.runSpeed = 5; // Default run speed
+            }
+            if (this.world.eve.jumpSpeed === 0) {
+                this.world.eve.jumpSpeed = 12; // Default jump speed
+            }
+            if (this.world.eve.gravity === 0) {
+                this.world.eve.gravity = 30; // Default gravity
+            }
+            
             // Immediately re-enable player (will be refined by resetToStartPosition)
             this.world.eve.ready = true;
             
@@ -670,7 +711,14 @@ class App {
             setTimeout(() => {
                 if (this.world?.eve) {
                     this.world.eve.ready = true;
-                    console.log('Player controls confirmed enabled after restart');
+                    this.world.eve.controlsDisabled = false;
+                    
+                    // Double-check movement properties are restored
+                    if (this.world.eve.runSpeed === 0) this.world.eve.runSpeed = 5;
+                    if (this.world.eve.jumpSpeed === 0) this.world.eve.jumpSpeed = 12;
+                    if (this.world.eve.gravity === 0) this.world.eve.gravity = 30;
+                    
+                    console.log('✅ Player controls fully restored after restart');
                 }
             }, 200);
         }

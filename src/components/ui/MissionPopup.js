@@ -9,9 +9,17 @@ export class MissionPopup {
     this.animationDuration = options.animationDuration || 0.5;
     this.autoHideDelay = options.autoHideDelay || 0; // Disabled by default
     
+    // Current level and game reference
+    this.currentLevel = options.currentLevel || 1;
+    this.maxLevel = options.maxLevel || 3;
+    this.game = options.game; // Reference to game for navigation
+    
     // Callbacks
     this.onClose = options.onClose || (() => {});
     this.onShow = options.onShow || (() => {});
+    this.onNextLevel = options.onNextLevel || (() => {});
+    this.onPreviousLevel = options.onPreviousLevel || (() => {});
+    this.onRestart = options.onRestart || (() => {});
     
     this.createUI();
   }
@@ -95,42 +103,86 @@ export class MissionPopup {
     statsContainer.appendChild(timeStat);
     statsContainer.appendChild(livesStat);
 
-    // Continue button
-    const continueBtn = document.createElement('button');
-    continueBtn.textContent = 'Continue';
-    continueBtn.style.cssText = `
-      background: linear-gradient(45deg, #00ff88, #00cc66);
-      color: white;
-      border: none;
-      padding: 15px 30px;
-      font-size: 1.1em;
-      border-radius: 25px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: all 0.3s ease;
-      box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
+    // Buttons container
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.style.cssText = `
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 30px;
     `;
 
-    // Button hover effects
-    continueBtn.addEventListener('mouseenter', () => {
-      continueBtn.style.transform = 'translateY(-2px)';
-      continueBtn.style.boxShadow = '0 8px 20px rgba(0, 255, 136, 0.5)';
-    });
+    // Button style helper
+    const createButton = (text, gradient, hoverColor) => {
+      const btn = document.createElement('button');
+      btn.textContent = text;
+      btn.style.cssText = `
+        background: linear-gradient(45deg, ${gradient});
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        font-size: 1.1em;
+        border-radius: 25px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        min-width: 140px;
+      `;
 
-    continueBtn.addEventListener('mouseleave', () => {
-      continueBtn.style.transform = 'translateY(0)';
-      continueBtn.style.boxShadow = '0 5px 15px rgba(0, 255, 136, 0.3)';
-    });
+      btn.addEventListener('mouseenter', () => {
+        btn.style.transform = 'translateY(-2px)';
+        btn.style.boxShadow = `0 8px 20px ${hoverColor}`;
+      });
 
-    continueBtn.addEventListener('click', () => {
+      btn.addEventListener('mouseleave', () => {
+        btn.style.transform = 'translateY(0)';
+        btn.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
+      });
+
+      return btn;
+    };
+
+    // Previous Level button (only show if not on level 1)
+    if (this.currentLevel > 1) {
+      const prevLevelBtn = createButton('◄ Previous Level', '#667eea, #764ba2', 'rgba(118, 75, 162, 0.5)');
+      prevLevelBtn.addEventListener('click', () => {
+        this.onPreviousLevel(this.currentLevel - 1);
+      });
+      buttonsContainer.appendChild(prevLevelBtn);
+    }
+
+    // Restart button
+    const restartBtn = createButton('🔄 Restart', '#ff6b6b, #ee5a6f', 'rgba(255, 107, 107, 0.5)');
+    restartBtn.addEventListener('click', () => {
+      this.onRestart();
+    });
+    buttonsContainer.appendChild(restartBtn);
+
+    // Next Level button (only show if not on max level)
+    if (this.currentLevel < this.maxLevel) {
+      const nextLevelBtn = createButton('Next Level ►', '#00ff88, #00cc66', 'rgba(0, 255, 136, 0.5)');
+      nextLevelBtn.addEventListener('click', () => {
+        this.onNextLevel(this.currentLevel + 1);
+      });
+      buttonsContainer.appendChild(nextLevelBtn);
+    }
+
+    // Home button - always show, refreshes the page
+    const homeBtn = createButton('🏠 Home', '#667eea, #764ba2', 'rgba(118, 75, 162, 0.5)');
+    homeBtn.addEventListener('click', () => {
       this.hide();
+      // Refresh the whole page to go home
+      window.location.reload();
     });
+    buttonsContainer.appendChild(homeBtn);
 
     // Assemble popup
     popupContent.appendChild(title);
     popupContent.appendChild(message);
     popupContent.appendChild(statsContainer);
-    popupContent.appendChild(continueBtn);
+    popupContent.appendChild(buttonsContainer);
     this.container.appendChild(popupContent);
 
     // Store references for animation
@@ -180,10 +232,18 @@ export class MissionPopup {
    * @param {Object} stats - Player stats to display
    */
   show(stats = {}) {
-    if (this.isVisible) return;
+    // If already visible, just update stats and return
+    if (this.isVisible) {
+      this.updateStats(stats);
+      return;
+    }
 
     this.isVisible = true;
-    document.body.appendChild(this.container);
+    
+    // Only append if not already in DOM
+    if (!this.container.parentNode) {
+      document.body.appendChild(this.container);
+    }
 
     // Trigger animation
     requestAnimationFrame(() => {
@@ -196,6 +256,7 @@ export class MissionPopup {
     this.updateStats(stats);
 
     // Auto-hide after delay (only if autoHideDelay > 0)
+    // Note: autoHideDelay is 0 by default, so popup stays visible
     if (this.autoHideDelay > 0) {
       setTimeout(() => {
         if (this.isVisible) {
@@ -232,9 +293,61 @@ export class MissionPopup {
    * @param {Object} stats - Player stats
    */
   updateStats(stats) {
-    // This would be called with actual player stats
-    // For now, we'll keep the default values
-    console.log('Updating mission stats:', stats);
+    if (!this.popupContent) return;
+    
+    // Find stat elements and update them
+    const statsContainer = this.popupContent.querySelector('div[style*="justify-content: space-around"]');
+    if (!statsContainer) return;
+    
+    const statDivs = statsContainer.querySelectorAll('div[style*="text-align: center"]');
+    
+    // Update health stat
+    if (statDivs[0] && stats.health !== undefined) {
+      const healthPercent = stats.maxHealth > 0 
+        ? Math.round((stats.health / stats.maxHealth) * 100) 
+        : 0;
+      const valueEl = statDivs[0].querySelector('div[style*="font-size: 1.5em"]');
+      if (valueEl) {
+        valueEl.textContent = `${healthPercent}%`;
+      }
+    }
+    
+    // Update time stat
+    if (statDivs[1] && stats.time) {
+      const valueEl = statDivs[1].querySelector('div[style*="font-size: 1.5em"]');
+      if (valueEl) {
+        valueEl.textContent = stats.time;
+      }
+    }
+    
+    // Update lives stat (if shown)
+    if (statDivs[2] && stats.lives !== undefined) {
+      const valueEl = statDivs[2].querySelector('div[style*="font-size: 1.5em"]');
+      if (valueEl) {
+        valueEl.textContent = stats.lives;
+      }
+    }
+  }
+
+  /**
+   * Update the current level
+   * @param {number} level - Current level
+   */
+  setCurrentLevel(level) {
+    this.currentLevel = level;
+    // Recreate UI to update button visibility
+    if (this.isVisible) {
+      const oldContent = this.popupContent;
+      this.createUI();
+      // Replace old content with new
+      if (oldContent && oldContent.parentNode) {
+        oldContent.parentNode.replaceChild(this.popupContent, oldContent);
+      }
+      // Re-trigger animation
+      requestAnimationFrame(() => {
+        this.popupContent.style.transform = 'scale(1)';
+      });
+    }
   }
 
   /**

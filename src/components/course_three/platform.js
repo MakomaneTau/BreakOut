@@ -5,6 +5,7 @@ import { FlyingCubesSpawner } from './flying_cubes.js'; // Handles repeated spaw
 import { concrete_blocks } from './concrete_blocks.js';
 import { createPlatformMaterial } from '../../shaders/platformShader.js';
 import { Helicopter } from '../helicopter.js';
+import { finish_line } from '../course/finish_line.js';
 
 class platform {
 	constructor(game) {
@@ -15,6 +16,7 @@ class platform {
 		this.model = null;
 		this.shaderMaterials = []; // Store shader materials for time updates
 		this.helicopter = null; // Helicopter at finish line (will be created after platform loads)
+		this.finishLine = null; // Finish line (will be created after platform loads)
 		this.game = game; // Store game reference for helicopter creation
 
 		this.concreteBlocks = [
@@ -113,8 +115,9 @@ class platform {
 				this.model = gltf.scene;
 				this.ready = true;
 				
-				// Calculate platform dimensions and place helicopter at the end
+				// Calculate platform dimensions and place helicopter and finish line at the end
 				this.positionHelicopterAtEnd();
+				this.positionFinishLineAtEnd();
 			},
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
@@ -136,25 +139,48 @@ class platform {
 		const platformMaxX = box.max.x;
 		
 		// Level 3: Platform is at -213.1, player starts at beginning of platform (around -213 to -210 area)
-		// Hardcoded player start position for level 3
-		const playerStartX = -213;
-		const distanceToMin = Math.abs(platformMinX - playerStartX);
-		const distanceToMax = Math.abs(platformMaxX - playerStartX);
+		// Level 3 has level 2's platform PLUS an extra platform segment
+		// The finish line should be at the OTHER end of the extra platform segment (minimum X, the opposite end)
+		const platformEndX = platformMinX; // End of extra platform is at the minimum X (the other end)
 		
-		// The end is the one farther from the player start (farthest end = finish line)
-		const platformEndX = distanceToMin > distanceToMax ? platformMinX : platformMaxX;
-		
-		// Push helicopter further backwards (more negative X)
-		const helicopterOffset = -5; // Offset to push helicopter further back
+		// Position helicopter slightly after the finish line (at the end of the extra platform)
+		const helicopterOffset = 3; // Small offset to place helicopter at the end
 		const helicopterX = platformEndX + helicopterOffset;
 		
 		// Create helicopter at the end (only one helicopter per platform)
 		this.helicopter = new Helicopter(this.game, {
-			position: new THREE.Vector3(helicopterX, 2, 0),
+			position: new THREE.Vector3(helicopterX, 8, 0),
 			scale: new THREE.Vector3(1, 1, 1),
 			rotation: new THREE.Euler(0, Math.PI / 2, 0)
 		});
-		console.log(`🚁 Level 3: Helicopter positioned at end of platform (X: ${helicopterX.toFixed(2)}, platform extends from ${platformMinX.toFixed(2)} to ${platformMaxX.toFixed(2)}, player starts at ${playerStartX}, offset: ${helicopterOffset})`);
+		console.log(`🚁 Level 3: Helicopter positioned at end of EXTRA platform (X: ${helicopterX.toFixed(2)}, platform extends from ${platformMinX.toFixed(2)} to ${platformMaxX.toFixed(2)}, extra platform ends at ${platformEndX.toFixed(2)})`);
+	}
+
+	positionFinishLineAtEnd() {
+		if (!this.model) return;
+		
+		// Calculate bounding box of the platform to get actual dimensions
+		const box = new THREE.Box3().setFromObject(this.model);
+		const platformMinX = box.min.x;
+		const platformMaxX = box.max.x;
+		
+		// Level 3: Platform is at -213.1, player starts at beginning of platform (around -213 to -210 area)
+		// Level 3 has level 2's platform PLUS an extra platform segment
+		// The finish line should be at the OTHER end of the extra platform segment (minimum X, the opposite end)
+		const platformEndX = platformMinX; // End of extra platform is at the minimum X (the other end)
+		
+		// Only create finish line if it doesn't exist yet
+		if (!this.finishLine) {
+			// Position finish line on the platform surface (y=4.05 is slightly above platform surface)
+			// width = span across platform (Z), depth = thickness along platform (X)
+			this.finishLine = new finish_line(this.game, {
+				position: [platformEndX, 4.05, 0],
+				width: 6,  // spans across platform (Z axis)
+				height: 0.1,
+				depth: 2  // thickness along platform (X axis)
+			});
+			console.log(`🏁 Level 3: Finish line positioned at end of EXTRA platform (X: ${platformEndX.toFixed(2)}, platform extends from ${platformMinX.toFixed(2)} to ${platformMaxX.toFixed(2)})`);
+		}
 	}
 
 	update(time, delta) {
@@ -171,6 +197,10 @@ class platform {
 		// Update helicopter animation
 		if (this.helicopter && this.helicopter.ready) {
 			this.helicopter.update(time, delta);
+		}
+		// Update finish line animation
+		if (this.finishLine && this.finishLine.ready) {
+			this.finishLine.update(time, delta);
 		}
 	}
 }

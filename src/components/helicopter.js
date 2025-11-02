@@ -27,6 +27,9 @@ class Helicopter {
         this.animationTime = 0;
         this.rotorPhase = 0;
         
+        // Flag to disable hover animation during escape sequence
+        this.escapeMode = false;
+        
         this.createHelicopter();
     }
 
@@ -800,19 +803,22 @@ class Helicopter {
             this.tailRotor.rotation.x += this.rotorSpeed * delta * 4.5;
         }
         
-        // Enhanced hovering animation with more realistic movement
-        const hoverOffset = Math.sin(time * this.hoverSpeed) * this.hoverAmplitude;
-        const swayOffset = Math.sin(time * this.hoverSpeed * 0.7) * 0.1;
-        const pitchOffset = Math.sin(time * this.hoverSpeed * 0.5) * 0.02;
-        const rollOffset = Math.sin(time * this.hoverSpeed * 0.3) * 0.01;
-        
-        this.model.position.y = this.baseY + hoverOffset;
-        this.model.position.x += Math.sin(time * 0.5) * 0.02;
-        this.model.position.z += swayOffset;
-        
-        // More realistic attitude changes
-        this.model.rotation.z = Math.sin(time * this.hoverSpeed * 0.3) * 0.05 + rollOffset;
-        this.model.rotation.x = pitchOffset;
+        // Skip hover animation if in escape mode (being controlled by escape sequence)
+        if (!this.escapeMode) {
+            // Enhanced hovering animation with more realistic movement
+            const hoverOffset = Math.sin(time * this.hoverSpeed) * this.hoverAmplitude;
+            const swayOffset = Math.sin(time * this.hoverSpeed * 0.7) * 0.1;
+            const pitchOffset = Math.sin(time * this.hoverSpeed * 0.5) * 0.02;
+            const rollOffset = Math.sin(time * this.hoverSpeed * 0.3) * 0.01;
+            
+            this.model.position.y = this.baseY + hoverOffset;
+            this.model.position.x += Math.sin(time * 0.5) * 0.02;
+            this.model.position.z += swayOffset;
+            
+            // More realistic attitude changes
+            this.model.rotation.z = Math.sin(time * this.hoverSpeed * 0.3) * 0.05 + rollOffset;
+            this.model.rotation.x = pitchOffset;
+        }
         
         // Rotor disc opacity animation for blur effect
         if (this.rotorDisc) {
@@ -831,8 +837,22 @@ class Helicopter {
         // Update lighting effects
         this.updateLightingEffects(time);
         
-        // Engine vibration effect
-        this.updateEngineVibration(time, delta);
+        // Engine vibration effect (disabled during escape mode)
+        if (!this.escapeMode) {
+            this.updateEngineVibration(time, delta);
+        }
+    }
+    
+    /**
+     * Enable escape mode - disables hover animations so escape sequence can control position
+     */
+    setEscapeMode(enabled) {
+        this.escapeMode = enabled;
+        if (enabled) {
+            console.log('🚁 Helicopter escape mode enabled - hover animation disabled');
+        } else {
+            console.log('🚁 Helicopter escape mode disabled - hover animation restored');
+        }
     }
     
     updateNavigationLights(time) {

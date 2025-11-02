@@ -4,6 +4,7 @@ import { concrete_blocks } from './concrete_blocks.js';
 import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
 import { Helicopter } from '../helicopter.js';
+import { finish_line } from './finish_line.js';
 
 class platform {
 	constructor(game, opts = {}) {
@@ -14,6 +15,7 @@ class platform {
 		this.model = null;
 		this.level = opts.level || game.level || 1;
 		this.helicopter = null; // Helicopter at finish line (will be created after platform loads)
+		this.finishLine = null; // Finish line (will be created after platform loads)
 		this.game = game; // Store game reference for helicopter creation
 		
 		// Play mode (level 4) has no obstacles - skip creating them
@@ -93,8 +95,9 @@ class platform {
 				this.model = gltf.scene;
 				this.ready = true;
 				
-				// Calculate platform dimensions and place helicopter at the end
+				// Calculate platform dimensions and place helicopter and finish line at the end
 				this.positionHelicopterAtEnd();
+				this.positionFinishLineAtEnd();
 			},
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
@@ -131,6 +134,38 @@ class platform {
 		}
 	}
 
+	positionFinishLineAtEnd() {
+		if (!this.model || this.level !== 1) return; // Only create finish line for level 1
+		
+		// Calculate bounding box of the platform to get actual dimensions
+		const box = new THREE.Box3().setFromObject(this.model);
+		const platformMinX = box.min.x;
+		const platformMaxX = box.max.x;
+		
+		// Player starts around x=3 (based on resetToStartPosition)
+		const playerStartX = 3;
+		
+		// Determine which end is closer to player start (that's the start of the platform)
+		const distanceToMin = Math.abs(platformMinX - playerStartX);
+		const distanceToMax = Math.abs(platformMaxX - playerStartX);
+		
+		// The end is the one farther from the player start
+		const platformEndX = distanceToMin > distanceToMax ? platformMinX : platformMaxX;
+		
+		// Only create finish line if it doesn't exist yet
+		if (!this.finishLine) {
+			// Position finish line on the platform surface (y=4.05 is slightly above platform surface)
+			// width = span across platform (Z), depth = thickness along platform (X)
+			this.finishLine = new finish_line(this.game, {
+				position: [platformEndX, 4.05, 0],
+				width: 6,  // spans across platform (Z axis)
+				height: 0.1,
+				depth: 2  // thickness along platform (X axis)
+			});
+			console.log(`🏁 Level 1: Finish line positioned at end of platform (X: ${platformEndX.toFixed(2)})`);
+		}
+	}
+
 	update(time, delta) {
 		if (!this.ready) return;
 		// Only update obstacles if they exist (not in play mode)
@@ -146,6 +181,10 @@ class platform {
 		// Update helicopter animation
 		if (this.helicopter && this.helicopter.ready) {
 			this.helicopter.update(time, delta);
+		}
+		// Update finish line animation
+		if (this.finishLine && this.finishLine.ready) {
+			this.finishLine.update(time, delta);
 		}
 	}
 }

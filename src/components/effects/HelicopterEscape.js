@@ -64,6 +64,11 @@ export class HelicopterEscape {
     if (this.helicopter && this.helicopter.model) {
       this.originalHelicopterPosition.copy(this.helicopter.model.position);
       this.originalHelicopterRotation.copy(this.helicopter.model.rotation);
+      
+      // Disable helicopter hover animation during escape sequence
+      if (this.helicopter.setEscapeMode) {
+        this.helicopter.setEscapeMode(true);
+      }
     }
     
     // Set up animation targets
@@ -215,24 +220,21 @@ export class HelicopterEscape {
       const heliPos = this.helicopter.model.position;
       const heliRot = this.helicopter.model.rotation;
       
-      // Calculate character position relative to helicopter
-      const characterPos = new THREE.Vector3(
-        heliPos.x + this.characterOffset.x,
-        heliPos.y + this.characterOffset.y,
-        heliPos.z + this.characterOffset.z
-      );
+      // Create a matrix to transform the offset by helicopter's rotation
+      const rotationMatrix = new THREE.Matrix4();
+      rotationMatrix.makeRotationFromEuler(heliRot);
       
-      // Apply helicopter rotation to character offset
-      const rotatedOffset = this.characterOffset.clone();
-      rotatedOffset.applyEuler(heliRot);
+      // Apply rotation to the offset vector
+      const rotatedOffset = this.characterOffset.clone().applyMatrix4(rotationMatrix);
       
+      // Set character position relative to helicopter
       this.character.model.position.set(
         heliPos.x + rotatedOffset.x,
         heliPos.y + rotatedOffset.y,
         heliPos.z + rotatedOffset.z
       );
       
-      // Match helicopter rotation
+      // Match helicopter rotation (character faces same direction as helicopter)
       this.character.model.rotation.copy(heliRot);
     }
   }
@@ -359,14 +361,9 @@ export class HelicopterEscape {
       // Slight forward tilt during takeoff
       this.helicopter.model.rotation.x = Math.sin(progress * Math.PI) * 0.15;
       
-      // Keep character on helicopter
-      if (this.character && this.character.model) {
-        const heliPos = this.helicopter.model.position;
-        this.character.model.position.set(
-          heliPos.x + this.characterOffset.x,
-          heliPos.y + this.characterOffset.y,
-          heliPos.z + this.characterOffset.z
-        );
+      // Keep character on helicopter (use the helper method for proper rotation)
+      if (this.character && this.character.model && this.helicopter && this.helicopter.model) {
+        this.keepCharacterOnHelicopter();
       }
     }
     
@@ -469,9 +466,14 @@ export class HelicopterEscape {
     // Re-enable character controls
     this.enableCharacterControls();
     
-    // Reset helicopter rotor speed
+    // Reset helicopter state
     if (this.helicopter) {
       this.helicopter.rotorSpeed = 0.15; // Reset to normal speed
+      
+      // Re-enable hover animation
+      if (this.helicopter.setEscapeMode) {
+        this.helicopter.setEscapeMode(false);
+      }
     }
     
     // Reset visibility
