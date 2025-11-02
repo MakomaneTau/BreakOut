@@ -55,6 +55,7 @@ class Eve {
       scene: this.scene,
       character: this,
       helicopter: null,
+      game: this.game, // Pass game reference for accessing timer stats
       duration: 4.0,
       particleCount: 60,
       volume: 0.3,
@@ -62,6 +63,7 @@ class Eve {
     });
 
     this.winTriggered = false;
+    this.controlsDisabled = false; // Initialize controls as enabled
 
     this.health = new PlayerHealth({
       maxHealth: HealthConfig.MAX_HEALTH,
@@ -846,10 +848,46 @@ class Eve {
     const collision = this.collisionManager.findCollisionFor(this.collider);
     if (collision) {
       if (collision.mesh.userData?.type === 'finish_line') {
+        // Connect helicopter before triggering win animation
+        this.connectHelicopterForFinishLine();
         this.triggerWinAnimation();
         return;
       }
       this.handleCollisionDamage(collision);
+    }
+  }
+
+  /**
+   * Find and connect the helicopter for the current level when finish line is reached
+   */
+  connectHelicopterForFinishLine() {
+    if (!this.game || !this.game.world) {
+      console.warn('Cannot connect helicopter - world not available');
+      return;
+    }
+
+    const world = this.game.world;
+    const level = world.level || this.collisionManager?.level || 1;
+    let helicopter = null;
+
+    // Find helicopter based on current level
+    if (level === 1 && world.structure?.platform?.helicopter) {
+      helicopter = world.structure.platform.helicopter;
+      console.log('🚁 Level 1: Found helicopter at finish line');
+    } else if (level === 2 && world.platform_two?.helicopter) {
+      helicopter = world.platform_two.helicopter;
+      console.log('🚁 Level 2: Found helicopter at finish line');
+    } else if (level === 3 && world.platform_three?.helicopter) {
+      helicopter = world.platform_three.helicopter;
+      console.log('🚁 Level 3: Found helicopter at finish line');
+    }
+
+    // Connect helicopter to character
+    if (helicopter && helicopter.ready) {
+      this.setHelicopter(helicopter);
+      console.log('✅ Helicopter connected - player will hold on and fly away!');
+    } else {
+      console.warn('⚠️ Helicopter not found or not ready for finish line');
     }
   }
 }

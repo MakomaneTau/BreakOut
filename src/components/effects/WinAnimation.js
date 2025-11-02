@@ -13,9 +13,11 @@ export class WinAnimation {
     this.scene = options.scene;
     this.character = options.character; // Reference to character with animation system
     this.helicopter = options.helicopter; // Reference to helicopter for escape sequence
+    this.game = options.game; // Reference to game for accessing timer stats
     this.isActive = false;
     this.duration = options.duration || 4.0; // Total animation duration
     this.timer = 0;
+    this.missionPopupShown = false; // Track if mission popup has been shown
     
     // Animation phases
     this.phase = 'idle'; // 'idle', 'initial_jump', 'celebration', 'helicopter_escape', 'ending'
@@ -38,11 +40,55 @@ export class WinAnimation {
       enabled: options.soundEnabled !== false
     });
 
+    // Get current level from game
+    const currentLevel = options.game?.level || 1;
+    const maxLevel = 3; // Maximum level in the game
+    
     this.missionPopup = new MissionPopup({
       animationDuration: 0.6,
       autoHideDelay: 0, // Disabled - user must close manually
+      currentLevel: currentLevel,
+      maxLevel: maxLevel,
+      game: this.game,
       onShow: () => console.log('Mission popup shown'),
-      onClose: () => console.log('Mission popup closed')
+      onClose: () => console.log('Mission popup closed'),
+      onNextLevel: (nextLevel) => {
+        console.log(`Navigating to level ${nextLevel}`);
+        // Hide popup before navigation
+        if (this.missionPopup) {
+          this.missionPopup.hide();
+        }
+        // Force cleanup before navigation
+        this.forceCleanup();
+        // Reload with next level
+        window.location.href = `?level=${nextLevel}`;
+      },
+      onPreviousLevel: (prevLevel) => {
+        console.log(`Navigating to level ${prevLevel}`);
+        // Hide popup before navigation
+        if (this.missionPopup) {
+          this.missionPopup.hide();
+        }
+        // Force cleanup before navigation
+        this.forceCleanup();
+        // Reload with previous level
+        window.location.href = `?level=${prevLevel}`;
+      },
+      onRestart: () => {
+        console.log('Restarting current level');
+        // Hide popup before restart
+        if (this.missionPopup) {
+          this.missionPopup.hide();
+        }
+        // Force cleanup before restart
+        this.forceCleanup();
+        if (this.game && this.game.restartGame) {
+          this.game.restartGame();
+        } else {
+          // Fallback: reload current level
+          window.location.reload();
+        }
+      }
     });
     
     // Initialize helicopter escape sequence
@@ -115,10 +161,9 @@ export class WinAnimation {
     // Handle animation phases
     this.updateAnimationPhases(delta);
     
-    // Check if animation is complete
-    if (this.timer >= this.duration) {
-      this.endAnimation();
-    }
+    // Don't auto-end animation - let mission popup stay visible
+    // The animation will transition to 'ending' phase but won't cleanup the popup
+    // The popup will only be removed when user clicks a button
   }
 
   /**
@@ -151,20 +196,18 @@ export class WinAnimation {
         // Update helicopter escape sequence
         this.helicopterEscape.update(delta);
         
-        // When escape is complete, show mission popup after 5 seconds
+        // Show mission popup after 8 seconds from when player reached finish line
+        // (8 seconds from when trigger() was called, which is stored as timer = 0 start)
+        if (!this.missionPopupShown) {
+          if (this.timer >= 12.0) {
+            this.showMissionPopup();
+          }
+        }
+        
+        // When escape is complete, transition to ending
         if (!this.helicopterEscape.isRunning()) {
           this.phase = 'ending';
           this.phaseTimer = 0;
-          
-          // Show mission popup after 5 seconds delay
-          setTimeout(() => {
-            this.missionPopup.show({
-              health: this.character?.health?.currentHealth || 100,
-              maxHealth: this.character?.health?.maxHealth || 100,
-              lives: this.character?.health?.currentLives || 3,
-              time: '03:45' // This could be passed from the game
-            });
-          }, 5000);
         }
         break;
         
@@ -231,10 +274,8 @@ export class WinAnimation {
     // Ensure character returns to idle
     this.playCharacterAction('idle', 0.5);
     
-    // Clean up after a brief delay
-    setTimeout(() => {
-      this.cleanup();
-    }, 1000);
+    // Don't cleanup automatically - let the mission popup stay visible
+    // The popup will be cleaned up when user clicks a button
   }
 
   /**
@@ -264,6 +305,8 @@ export class WinAnimation {
 
   /**
    * Clean up all resources
+   * Note: Mission popup should NOT be disposed here if it's still visible
+   * It will be cleaned up when user navigates or restarts
    */
   cleanup() {
     this.isActive = false;
@@ -272,11 +315,17 @@ export class WinAnimation {
     this.phaseTimer = 0;
     this.currentJumpIndex = 0;
     this.lastJumpTime = 0;
+    this.missionPopupShown = false; // Reset for next win
     
     // Clean up sub-components
     this.effects.cleanup();
     this.sound.dispose();
-    this.missionPopup.dispose();
+    
+    // Only dispose mission popup if it's not visible (user has already interacted)
+    // Otherwise, let it stay visible for user interaction
+    if (this.missionPopup && !this.missionPopup.isCurrentlyVisible()) {
+      this.missionPopup.dispose();
+    }
     
     // Restore original character state if needed
     if (this.character && this.character.model) {
@@ -284,6 +333,47 @@ export class WinAnimation {
       // Just ensure we're in idle state
       this.playCharacterAction('idle', 0.3);
     }
+  }
+  
+  /**
+   * Force cleanup including mission popup (called when user navigates away)
+   */
+  forceCleanup() {
+    this.isActive = false;
+    this.timer = 0;
+    this.phase = 'idle';
+    this.phaseTimer = 0;
+    this.currentJumpIndex = 0;
+    this.lastJumpTime = 0;
+    this.missionPopupShown = false;
+    
+    // Clean up all sub-components including mission popup
+    this.effects.cleanup();
+    this.sound.dispose();
+    if (this.missionPopup) {
+      this.missionPopup.dispose();
+    }
+  }
+
+  /**
+   * Show the mission popup with current game stats
+   */
+  showMissionPopup() {
+    if (this.missionPopupShown) return;
+    this.missionPopupShown = true;
+    
+    // Get current stats from game
+    let timeFormatted = '00:00';
+    if (this.game?.timerUI) {
+      timeFormatted = this.game.timerUI.getFormattedTime();
+    }
+    
+    this.missionPopup.show({
+      health: this.character?.health?.currentHealth || 100,
+      maxHealth: this.character?.health?.maxHealth || 100,
+      lives: this.character?.health?.currentLives || 3,
+      time: timeFormatted
+    });
   }
 
   /**

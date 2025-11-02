@@ -4,6 +4,7 @@ import { laser_barrier } from './laser_barrier.js';
 import { FlyingCubesSpawner } from './flying_cubes.js'; // Handles repeated spawning of moving cubes
 import { createPlatformMaterial } from '../../shaders/platformShader.js';
 import { Helicopter } from '../helicopter.js';
+import { finish_line } from '../course/finish_line.js';
 
 class platform {
 	constructor(game) {
@@ -14,6 +15,7 @@ class platform {
 		this.model = null;
 		this.shaderMaterials = []; // Store shader materials for time updates
 		this.helicopter = null; // Helicopter at finish line (will be created after platform loads)
+		this.finishLine = null; // Finish line (will be created after platform loads)
 		this.game = game; // Store game reference for helicopter creation
 
 		this.laserBarriers = [
@@ -81,8 +83,24 @@ class platform {
 				this.model = gltf.scene;
 				this.ready = true;
 				
-				// Calculate platform dimensions and place helicopter at the end
-				this.positionHelicopterAtEnd();
+				// Only create helicopter and finish line if NOT level 3 (level 3 uses platform_three's finish line)
+				const currentLevel = this.game?.level || 1;
+				if (currentLevel !== 3) {
+					// Calculate platform dimensions and place helicopter and finish line at the end
+					this.positionHelicopterAtEnd();
+					this.positionFinishLineAtEnd();
+				} else {
+					// Level 3: Clean up any existing helicopter/finish line from platform_two
+					if (this.helicopter && this.helicopter.model) {
+						this.scene.remove(this.helicopter.model);
+						this.helicopter = null;
+					}
+					if (this.finishLine && this.finishLine.model) {
+						this.scene.remove(this.finishLine.model);
+						this.finishLine = null;
+					}
+					console.log('🚫 Level 3: Skipping helicopter and finish line creation for platform_two (using platform_three instead)');
+				}
 			},
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
@@ -121,6 +139,37 @@ class platform {
 		console.log(`🚁 Level 2: Helicopter positioned at end of platform (X: ${platformEndX.toFixed(2)}, platform extends from ${platformMinX.toFixed(2)} to ${platformMaxX.toFixed(2)}, player starts at ${playerStartX})`);
 	}
 
+	positionFinishLineAtEnd() {
+		if (!this.model) return;
+		
+		// Calculate bounding box of the platform to get actual dimensions
+		const box = new THREE.Box3().setFromObject(this.model);
+		const platformMinX = box.min.x;
+		const platformMaxX = box.max.x;
+		
+		// Level 2: Platform is at -72.3, player starts at beginning of platform (around -72 to -70 area)
+		// Hardcoded player start position for level 2
+		const playerStartX = -72;
+		const distanceToMin = Math.abs(platformMinX - playerStartX);
+		const distanceToMax = Math.abs(platformMaxX - playerStartX);
+		
+		// The end is the one farther from the player start (farthest end = finish line)
+		const platformEndX = distanceToMin > distanceToMax ? platformMinX : platformMaxX;
+		
+		// Only create finish line if it doesn't exist yet
+		if (!this.finishLine) {
+			// Position finish line on the platform surface (y=4.05 is slightly above platform surface)
+			// width = span across platform (Z), depth = thickness along platform (X)
+			this.finishLine = new finish_line(this.game, {
+				position: [platformEndX, 4.05, 0],
+				width: 6,  // spans across platform (Z axis)
+				height: 0.1,
+				depth: 2  // thickness along platform (X axis)
+			});
+			console.log(`🏁 Level 2: Finish line positioned at end of platform (X: ${platformEndX.toFixed(2)})`);
+		}
+	}
+
 	update(time, delta) {
 		if (!this.ready) return;
 		// Update shader time uniforms
@@ -134,6 +183,10 @@ class platform {
 		// Update helicopter animation
 		if (this.helicopter && this.helicopter.ready) {
 			this.helicopter.update(time, delta);
+		}
+		// Update finish line animation
+		if (this.finishLine && this.finishLine.ready) {
+			this.finishLine.update(time, delta);
 		}
 	}
 }
