@@ -844,15 +844,22 @@ class Eve {
     }
     
     if (!this.collider || !this.collisionManager || !this.health || !this.health.isAlive) return;
+    
+    // Don't check for finish line if win already triggered
+    if (this.winTriggered) return;
+    
     this.collider.update();
     const collision = this.collisionManager.findCollisionFor(this.collider);
     if (collision) {
-      if (collision.mesh.userData?.type === 'finish_line') {
+      // Check for finish line collision - prioritize this over damage
+      if (collision.mesh && collision.mesh.userData && collision.mesh.userData.type === 'finish_line') {
+        console.log('🏁 Finish line collision detected!');
         // Connect helicopter before triggering win animation
         this.connectHelicopterForFinishLine();
         this.triggerWinAnimation();
         return;
       }
+      // Handle other collision types (damage)
       this.handleCollisionDamage(collision);
     }
   }

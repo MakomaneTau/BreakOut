@@ -6,6 +6,7 @@ class finish_line {
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
+		this.collisionModel = null; // Separate collision mesh with larger bounds
 		this.game = game;
 
 		const {
@@ -48,19 +49,21 @@ class finish_line {
 		texture.wrapT = THREE.RepeatWrapping;
 		texture.repeat.set(8, 2); // Repeat pattern across the finish line
 
-		// Create finish line material with emissive glow
+		// Create finish line material with emissive glow - make it more visible
 		const material = new THREE.MeshStandardMaterial({
 			map: texture,
-			emissive: new THREE.Color(0x333333),
+			emissive: new THREE.Color(0x00ff88), // Bright green glow
 			emissiveMap: texture,
-			emissiveIntensity: 0.3,
+			emissiveIntensity: 0.8, // Increased from 0.3
 			roughness: 0.5,
 			metalness: 0.2
 		});
 
 		// Create finish line geometry (flat plane on top of platform)
 		// width spans across platform (Z axis), depth is thickness along platform (X axis)
-		const geometry = new THREE.BoxGeometry(this._depth, this._height, this._width);
+		// Increase height slightly for better visibility
+		const visualHeight = Math.max(this._height, 0.15); // Ensure minimum height of 0.15
+		const geometry = new THREE.BoxGeometry(this._depth, visualHeight, this._width);
 		const mesh = new THREE.Mesh(geometry, material);
 
 		// Position the finish line
@@ -71,30 +74,61 @@ class finish_line {
 		mesh.castShadow = true;
 		mesh.receiveShadow = true;
 
-		// Set finish line type for collision detection
+		// Set finish line type for collision detection (on visual mesh too for fallback)
 		mesh.userData.type = 'finish_line';
 		mesh.name = 'finish_line';
 
 		this.scene.add(mesh);
 		this.model = mesh;
+
+		// Create a separate invisible collision box that's taller for reliable detection
+		// This ensures the player can't pass through without triggering
+		const collisionHeight = 3.0; // Tall collision box (from platform to above player head)
+		const collisionDepth = this._depth * 1.5; // Slightly wider for better detection
+		const collisionWidth = this._width * 1.2; // Slightly wider across platform
+		
+		const collisionGeometry = new THREE.BoxGeometry(collisionDepth, collisionHeight, collisionWidth);
+		const collisionMaterial = new THREE.MeshBasicMaterial({
+			visible: false, // Invisible
+			transparent: true,
+			opacity: 0
+		});
+		
+		const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+		collisionMesh.position.copy(this._position);
+		collisionMesh.position.y = this._position.y + (collisionHeight / 2) - (visualHeight / 2); // Center vertically
+		
+		// Set finish line type for collision detection - this is the primary collision mesh
+		collisionMesh.userData.type = 'finish_line';
+		collisionMesh.userData.isFinishLineCollider = true; // Mark as primary collider
+		collisionMesh.name = 'finish_line_collider';
+
+		this.scene.add(collisionMesh);
+		this.collisionModel = collisionMesh;
+
 		this.ready = true;
 
 		console.log(`✅ Finish line created at position (${this._position.x.toFixed(2)}, ${this._position.y.toFixed(2)}, ${this._position.z.toFixed(2)})`);
+		console.log(`✅ Finish line collision box: height=${collisionHeight.toFixed(2)}, depth=${collisionDepth.toFixed(2)}, width=${collisionWidth.toFixed(2)}`);
 	}
 
 	update(time, delta) {
 		// Optional: Add animation (pulsing glow, rotation, etc.)
 		if (!this.ready || !this.model) return;
 		
-		// Subtle pulsing effect
-		const pulseSpeed = 2;
-		const pulseIntensity = 0.2 + Math.sin(time * pulseSpeed) * 0.1;
+		// More noticeable pulsing effect with green glow
+		const pulseSpeed = 2.5;
+		const baseIntensity = 0.6;
+		const pulseAmplitude = 0.4;
+		const pulseIntensity = baseIntensity + Math.sin(time * pulseSpeed) * pulseAmplitude;
+		
 		if (this.model.material && this.model.material.emissiveIntensity !== undefined) {
 			this.model.material.emissiveIntensity = pulseIntensity;
 		}
 	}
 
 	dispose() {
+		// Dispose visual mesh
 		if (this.model && this.model.parent) {
 			this.model.parent.remove(this.model);
 		}
@@ -105,6 +139,19 @@ class finish_line {
 			this.model.geometry.dispose();
 		}
 		this.model = null;
+		
+		// Dispose collision mesh
+		if (this.collisionModel && this.collisionModel.parent) {
+			this.collisionModel.parent.remove(this.collisionModel);
+		}
+		if (this.collisionModel && this.collisionModel.material) {
+			this.collisionModel.material.dispose();
+		}
+		if (this.collisionModel && this.collisionModel.geometry) {
+			this.collisionModel.geometry.dispose();
+		}
+		this.collisionModel = null;
+		
 		this.ready = false;
 	}
 }
