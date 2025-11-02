@@ -77,7 +77,8 @@ export class LaserBarrierSpawner {
 			debug: false
 		}, options);
 
-		this.template = null; // loaded gltf.scene
+	this.template = null; // loaded gltf.scene
+	this.collisionSystem = options.collisionSystem || null;
 		this.barriers = [];
 		this.timer = 0;
 		this.nextInterval = this._rand(this.options.intervalMin, this.options.intervalMax);
@@ -143,21 +144,26 @@ export class LaserBarrierSpawner {
 			// Create accompanying 3D cube with same properties
 			const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
 			const cubeMaterial = new THREE.MeshStandardMaterial({
-				color: 0xff0000,
-				emissive: 0xff0000,
-				emissiveIntensity: 0.8,
+				// Keep material but render fully invisible to the camera
+				color: 0x000000,
+				emissive: 0x000000,
+				emissiveIntensity: 0.0,
 				transparent: true,
-				opacity: 0.7,
-				metalness: 0.5,
-				roughness: 0.2
+				opacity: 0.0,
+				metalness: 0.0,
+				roughness: 1.0
 			});
+			// Ensure the invisible collider does not affect depth or color buffers
+			cubeMaterial.depthWrite = false;
+			cubeMaterial.colorWrite = false;
 			const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 			cube.position.copy(clone.position);
 			// Use custom scale: length=20, keep height and depth from barrier
 			cube.scale.set(20, baseScale.y, baseScale.z);
 			cube.rotation.y = LASER_BARRIER_ROT_Y;
-			cube.castShadow = true;
-			cube.receiveShadow = true;
+			// Avoid casting or receiving shadows since it's invisible
+			cube.castShadow = false;
+			cube.receiveShadow = false;
 			cube.userData.type = 'laser';
 
 			// compute target and velocity
@@ -177,6 +183,10 @@ export class LaserBarrierSpawner {
 
 			this.scene.add(clone);
 			this.scene.add(cube);
+			// Manually register the invisible collider for immediate collision detection
+			if (this.collisionSystem) {
+				try { this.collisionSystem.addObstacle(cube, 'laser'); } catch {}
+			}
 			this.barriers.push(clone);
 			this.barriers.push(cube); // Add cube to barriers array too
 			newItems.push(clone);
@@ -204,6 +214,10 @@ export class LaserBarrierSpawner {
 				// reached
 				item.visible = false;
 				item.position.copy(item.userData.target);
+				// Unregister from collision system if it was registered
+				if (this.collisionSystem) {
+					try { this.collisionSystem.removeObstacle(item); } catch {}
+				}
 				this.scene.remove(item);
 				return false;
 			}

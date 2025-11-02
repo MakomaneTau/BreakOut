@@ -1,6 +1,7 @@
 // flying_cubes.js
 // Deterministic, looping flying cubes (no randomness)
 import * as THREE from '../../../public/libs/three137/three.module.js';
+import { TextureLoader } from '../../../public/libs/three137/three.module.js';
 
 /**
  * FlyingCubesSpawner
@@ -16,6 +17,7 @@ export class FlyingCubesSpawner {
             loop: true,
             useBasicMaterial: false,
             debug: false,
+            texturePath: '../../../public/textures/grainy_texture.jpg',
             // Provide 5 cubes by default; edit these to choose coordinates and scale
             cubeConfigs: [
                 { start: [-80, 5.5, -3.5], end: [-42, 5.5, -3.5], scale: [1.2, 1.2, 1.2], speed: 0.08 },
@@ -26,6 +28,8 @@ export class FlyingCubesSpawner {
             ],
         }, options);
         this.cubes = [];
+        this._textureLoader = new TextureLoader();
+        this._texture = this._textureLoader.load(this.options.texturePath);
         this._initCubes();
     }
 
@@ -64,9 +68,11 @@ export class FlyingCubesSpawner {
     _createCube(cfg) {
         const { start, end, speed = 0.08, color, size, scale } = cfg;
         const geometry = new THREE.BoxGeometry(1, 1, 1);
+        // Apply a texture map; color (if provided) will tint the texture
+        // Remove red tint: do not pass a color, let the texture define appearance
         const material = (this.options.useBasicMaterial
-            ? new THREE.MeshBasicMaterial({ color: cfg.color ?? this.options.color })
-            : new THREE.MeshStandardMaterial({ color: cfg.color ?? this.options.color }));
+            ? new THREE.MeshBasicMaterial({ map: this._texture })
+            : new THREE.MeshStandardMaterial({ map: this._texture, metalness: 0.2, roughness: 0.7 }));
 
         const cube = new THREE.Mesh(geometry, material);
         cube.castShadow = true;
@@ -91,6 +97,7 @@ export class FlyingCubesSpawner {
             start: startV.clone(),
             target: endV.clone(),
             velocity: dir.multiplyScalar(speed),
+            type: 'flying_cube', // mark as collidable for CollisionSystem
         };
 
         this.scene.add(cube);

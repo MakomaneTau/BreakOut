@@ -55,6 +55,7 @@ class platform {
 		// Laser barrier spawner (dynamic moving barriers)
 		this.laserBarrierSpawner = new LaserBarrierSpawner(this.scene, {
 			assetsPath: this.assetsPath,
+			collisionSystem: this.game?.collisionSystem,
 			countMin: 2,
 			countMax: 4,
 			sizeMin: 1,

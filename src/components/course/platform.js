@@ -2,19 +2,24 @@ import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
 import { laser_barrier } from './laser_barrier.js';
 import { FlyingCubesSpawner } from './flying_cubes.js';
+import { Helicopter } from '../helicopter.js';
+import { createPlatformMaterial } from '../../shaders/platformShader.js';
 
 class platform {
 	constructor(game, opts = {}) {
+		this.game = game;
 		this.assetsPath = game.assetsPath;
 		this.loadingBar = game.loadingBar;
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
+		this.shaderMaterials = [];
+		this.level = opts.level || 1;
 
 		// Add laser barriers
 		this.laserBarriers = [
-			new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-			new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_B' })
+			new laser_barrier(game, { position: [-10, 7.5, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-32, 7.5, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_B' })
 		];
 
 		// Create 3D cubes with same properties as laser barriers
@@ -51,16 +56,18 @@ class platform {
 			// Create cube geometry
 			const geometry = new THREE.BoxGeometry(1, 1, 1);
 
-			// Create glowing laser-like material
+			// Invisible collider material: fully transparent, no depth/color writes
 			const material = new THREE.MeshStandardMaterial({
-				color: 0xff0000, // Red laser color
-				emissive: 0xff0000, // Self-illuminating
-				emissiveIntensity: 0.8,
+				color: 0x000000,
+				emissive: 0x000000,
+				emissiveIntensity: 0.0,
 				transparent: true,
-				opacity: 0.7,
-				metalness: 0.5,
-				roughness: 0.2
+				opacity: 0.0,
+				metalness: 0.0,
+				roughness: 1.0
 			});
+			material.depthWrite = false;
+			material.colorWrite = false;
 
 			const cube = new THREE.Mesh(geometry, material);
 
@@ -69,9 +76,9 @@ class platform {
 			cube.scale.set(config.scale[0], config.scale[1], config.scale[2]);
 			cube.rotation.y = Math.PI / 2;
 
-			// Enable shadows
-			cube.castShadow = true;
-			cube.receiveShadow = true;
+			// Do not cast/receive shadows since it's invisible
+			cube.castShadow = false;
+			cube.receiveShadow = false;
 
 			// Set obstacle type for collision detection
 			cube.userData.type = 'laser';
@@ -92,31 +99,31 @@ class platform {
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
 				gltf.scene.position.set(-21.2, 4, 0); // Adjust position as needed
 
-				// Enable shadows on platform meshes
-				// Shader material application disabled - kept for future use
-				const platformMaterial = createPlatformMaterial({
-					color: new THREE.Color(0.3, 0.3, 0.35),
-					noiseScale: 0.1,
-					wearIntensity: 0.4,
-					grimeIntensity: 0.3,
-					patternScale: 0.5
-				});
+			// Enable shadows on platform meshes
+			// Shader material application disabled - kept for future use
+			const platformMat = createPlatformMaterial({
+				color: new THREE.Color(0.3, 0.3, 0.35),
+				noiseScale: 0.1,
+				wearIntensity: 0.4,
+				grimeIntensity: 0.3,
+				patternScale: 0.5
+			});
 
-				// Store material reference once for time updates
-				if (platformMaterial) {
-					this.shaderMaterials.push(platformMaterial);
-				}
+			// Store material reference once for time updates
+			if (platformMat) {
+				this.shaderMaterials.push(platformMat);
+			}
 
-				gltf.scene.traverse(node => {
-					if (node.isMesh) {
-						node.receiveShadow = true;
-						node.castShadow = true;
-						// Apply shader material to platform meshes
-						if (platformMaterial) {
-							node.material = platformMaterial;
-						}
+			gltf.scene.traverse(node => {
+				if (node.isMesh) {
+					node.receiveShadow = true;
+					node.castShadow = true;
+					// Apply shader material to platform meshes
+					if (platformMat) {
+						node.material = platformMat;
 					}
-				});
+				}
+			});
 
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;

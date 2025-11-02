@@ -27,6 +27,7 @@ class World {
     }
 
     constructor(game, opts = {}) {
+        this.game = game;
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
@@ -88,7 +89,8 @@ class World {
             this.eve = new Eve({
                 assetsPath: this.assetsPath,
                 loadingBar: this.loadingBar,
-                scene: this.scene
+                scene: this.scene,
+                collisionSystem: this.game?.collisionSystem
             });
             // Connect to helicopter if appears later
             setTimeout(() => this.connectCharacterToHelicopter(), 1500);

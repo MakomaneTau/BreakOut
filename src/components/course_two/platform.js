@@ -60,16 +60,18 @@ class platform {
 			// Create cube geometry
 			const geometry = new THREE.BoxGeometry(1, 1, 1);
 			
-			// Create glowing laser-like material
+			// Use an invisible collider material: fully transparent, no depth/color writes
 			const material = new THREE.MeshStandardMaterial({
-				color: 0xff0000, // Red laser color
-				emissive: 0xff0000, // Self-illuminating
-				emissiveIntensity: 0.8,
+				color: 0x000000,
+				emissive: 0x000000,
+				emissiveIntensity: 0.0,
 				transparent: true,
-				opacity: 0.7,
-				metalness: 0.5,
-				roughness: 0.2
+				opacity: 0.0,
+				metalness: 0.0,
+				roughness: 1.0
 			});
+			material.depthWrite = false;
+			material.colorWrite = false;
 			
 			const cube = new THREE.Mesh(geometry, material);
 			
@@ -78,9 +80,9 @@ class platform {
 			cube.scale.set(config.scale[0], config.scale[1], config.scale[2]);
 			cube.rotation.y = Math.PI / 2;
 			
-			// Enable shadows
-			cube.castShadow = true;
-			cube.receiveShadow = true;
+			// Do not cast/receive shadows since it's invisible
+			cube.castShadow = false;
+			cube.receiveShadow = false;
 			
 			// Set obstacle type for collision detection
 			cube.userData.type = 'laser';
@@ -186,6 +188,11 @@ class platform {
 			this.laserCubes.forEach(cube => {
 				cube.position.y = cube.userData.initialY + Math.sin(Date.now() * 0.005) * 2;
 			});
+		}
+		
+		// Update helicopter animation
+		if (this.helicopter && this.helicopter.ready) {
+			this.helicopter.update(time, delta);
 		}
 	}
 }

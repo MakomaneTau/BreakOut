@@ -7,6 +7,7 @@ import { HealthUI } from './components/ui/HealthUI.js';
 import { TimerUI } from './components/ui/TimerUI.js';
 import { AmbientUI } from './components/ui/AmbientUI.js';
 import { MenuUI } from './components/ui/MenuUI.js';
+import { CollisionSystem } from './utils/CollisionSystem.js';
 import { PauseUI } from './components/ui/PauseUI.js';
 import { SettingsUI } from './components/ui/SettingsUI.js';
 import { LoseComponent } from './components/ui/LoseComponent.js';
@@ -251,6 +252,8 @@ class App {
 
         // Scene + lights
         this.scene = new THREE.Scene();
+    // Global collision system (used by all levels and player)
+    this.collisionSystem = new CollisionSystem(this.scene);
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         this.scene.add(hemiLight);
 

@@ -9,7 +9,10 @@ class Eve {
   constructor(game) {
     this.assetsPath = game.assetsPath;
     this.loadingBar = game.loadingBar;
-    this.scene = game.scene;
+  this.scene = game.scene;
+  this.collisionSystem = game.collisionSystem || null;
+  this.lastSafePosition = null;
+    this.collisionSystem = game.collisionSystem || null;
     this.ready = false;
     this.model = null;
 
@@ -475,6 +478,31 @@ class Eve {
     return 'unknown';
   }
 
+  // Determine collider type by checking userData.type on the object or its ancestors
+  _getTypeFromHierarchy(obj) {
+    let o = obj;
+    while (o) {
+      if (o.userData && o.userData.type) return o.userData.type;
+      o = o.parent;
+    }
+    return null;
+  }
+
+  // Check if currently intersecting a laser and apply strict 20 HP damage
+  _applyLaserContactDamage() {
+    if (!this.collisionSystem || !this.model) return;
+    const hits = this.collisionSystem.getAllIntersections(this.model);
+    if (!hits || hits.length === 0) return;
+    // If any overlapping collider is a laser, apply damage once
+    for (const h of hits) {
+      const type = this._getTypeFromHierarchy(h.object);
+      if (type === 'laser') {
+        this.takeDamage(HealthConfig.OBSTACLE_DAMAGE, DamageType.OBSTACLE);
+        break;
+      }
+    }
+  }
+
   update(time, delta) {
     if (!this.ready) return;
     if (this.mixer) this.mixer.update(delta);
@@ -552,10 +580,15 @@ class Eve {
     let desiredAction = 'idle';
     let isMoving = false;
 
-    if (this.isRolling) {
+  if (this.isRolling) {
       // roll movement
-      const deltaMove = this.rollVelocity.clone().multiplyScalar(delta);
+  const deltaMove = this.rollVelocity.clone().multiplyScalar(delta);
+  const prevPos = this.model.position.clone();
       this.model.position.add(deltaMove);
+    // Apply damage if intersecting laser at this position, then resolve
+    this._applyLaserContactDamage();
+      // Resolve horizontal collisions
+  if (this.collisionSystem) this.collisionSystem.resolveContinuous(this.model, prevPos);
       this.rollTimer += delta;
       if (this.rollTimer >= this.rollDuration) {
         this.isRolling = false;
@@ -564,7 +597,7 @@ class Eve {
     } else if (!this.onGround) {
       desiredAction = this.findActionNameMatch('jump') || 'Jump';
 
-      if (this.isJumping) {
+  if (this.isJumping) {
         // horizontal jump movement
         const singleDeltaMove = new THREE.Vector3(
           this.jumpVelocity.x * delta,
@@ -572,7 +605,11 @@ class Eve {
           this.jumpVelocity.z * delta
         );
         const doubledMove = singleDeltaMove.clone().multiplyScalar(this.jumpDistanceBoost || 1.0);
+  const prevPos = this.model.position.clone();
         this.model.position.add(doubledMove);
+  	    // Apply damage if intersecting laser at this position, then resolve
+  	    this._applyLaserContactDamage();
+  if (this.collisionSystem) this.collisionSystem.resolveContinuous(this.model, prevPos);
         this.jumpTimer += delta;
         if (this.jumpTimer >= this.jumpDuration) {
           this.isJumping = false;
@@ -623,11 +660,15 @@ class Eve {
         isMoving = true;
       }
 
-      if (isMoving) {
+  if (isMoving) {
         movementVector.normalize();
         movementVector.multiplyScalar(this.runSpeed * delta);
 
+  const prevPos = this.model.position.clone();
         this.model.position.add(movementVector);
+    // Apply damage if intersecting laser at this position, then resolve
+    this._applyLaserContactDamage();
+  if (this.collisionSystem) this.collisionSystem.resolveContinuous(this.model, prevPos);
 
         const groundType = this.detectGroundType();
         if (groundType === 'stairs' && this.keyStates['w']) {
@@ -654,6 +695,33 @@ class Eve {
         }
       } else {
         desiredAction = this.findActionNameMatch('idle') || 'idle';
+      }
+    }
+
+    // Idle collision handling: if something (like a flying cube) moves into the player,
+    // push the player away even if no input.
+    if (this.collisionSystem && this.model) {
+      const hit = this.collisionSystem.getFirstIntersection(this.model);
+      if (hit) {
+        // Apply damage if the collider is a laser
+        const type = this._getTypeFromHierarchy(hit.object);
+        if (type === 'laser') {
+          this.takeDamage(HealthConfig.OBSTACLE_DAMAGE, DamageType.OBSTACLE);
+        }
+        // Revert to last safe if we have one
+        if (this.lastSafePosition) {
+          this.model.position.copy(this.lastSafePosition);
+        }
+        // Push away from collider center on horizontal plane
+        const pushDir = new THREE.Vector3().subVectors(this.model.position, hit.center).setY(0);
+        if (pushDir.lengthSq() > 1e-6) {
+          pushDir.normalize().multiplyScalar(this.collisionSystem.options.pushback || 0.12);
+          this.model.position.add(pushDir);
+        }
+      } else {
+        // Record last safe position when not intersecting
+        if (!this.lastSafePosition) this.lastSafePosition = new THREE.Vector3();
+        this.lastSafePosition.copy(this.model.position);
       }
     }
 
