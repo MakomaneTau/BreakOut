@@ -17,7 +17,7 @@ class Prison {
 			'scene.gltf',
 			gltf => {
 				gltf.scene.scale.set(1, 1, 1); // Adjust scale as needed
-				gltf.scene.position.set(-10, -17.5, 30); // Adjust position as needed
+				gltf.scene.position.set(-10, -18.1, 30); // Adjust position as needed
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 90 degrees around the Y-axis
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;

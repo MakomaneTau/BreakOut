@@ -265,8 +265,9 @@ export class DayNightManager {
     ctx.globalAlpha = 1.0;
     
     // Create a texture from the canvas
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
+  const texture = new THREE.CanvasTexture(canvas);
+  // three r137 compatibility: use encoding instead of colorSpace
+  texture.encoding = THREE.sRGBEncoding;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     
@@ -281,7 +282,8 @@ export class DayNightManager {
       texture  // back (nz)
     ]);
     
-    this.nightSkybox.colorSpace = THREE.SRGBColorSpace;
+  // three r137 compatibility: use encoding instead of colorSpace
+  this.nightSkybox.encoding = THREE.sRGBEncoding;
     this.nightSkybox.needsUpdate = true;
     
     console.log('Starry night skybox created');

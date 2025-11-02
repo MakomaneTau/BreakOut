@@ -12,9 +12,10 @@ import { PauseUI } from './components/ui/PauseUI.js';
 import { SettingsUI } from './components/ui/SettingsUI.js';
 import { LoseComponent } from './components/ui/LoseComponent.js';
 import { GameUI } from './components/ui/GameUI.js';
-import { DayNightManager } from './components/DayNightManager.js';
-import { InteractiveMap } from './components/ui/InteractiveMap.js';
-import { PhotoMode } from './components/ui/PhotoMode.js';
+// Lazy-load heavy, non-critical modules (dynamic imports used later)
+// import { DayNightManager } from './components/DayNightManager.js';
+// import { InteractiveMap } from './components/ui/InteractiveMap.js';
+// import { PhotoMode } from './components/ui/PhotoMode.js';
 
 
 
@@ -237,19 +238,8 @@ class App {
             minimapData
         });
         
-        // Initialize Interactive Map (after gameUI is created)
-        this.interactiveMap = new InteractiveMap({
-            scene: this.scene,
-            camera: this.camera,
-            getPlayerPosition: () => {
-                const pos = this.world?.eve?.model?.position;
-                return pos ? { x: pos.x, z: pos.z } : null;
-            },
-            getExtentsByFloor: minimapData.getExtentsByFloor,
-            onClose: () => {
-                // Map closed
-            }
-        });
+        // Interactive Map will be lazy-loaded on first open
+        this.interactiveMap = null;
 
         // Start with main menu visible
         this.isGameStarted = true; // Auto-start the game to show the scene
@@ -310,18 +300,8 @@ class App {
         // Dev controls for moving around the scene
         this.devControls = new DevControls(this.camera, this.renderer.domElement);
         
-        // Initialize Photo Mode (after renderer is ready)
-        this.photoMode = new PhotoMode({
-            scene: this.scene,
-            camera: this.camera,
-            renderer: this.renderer,
-            onPause: () => {
-                this.pauseGame();
-            },
-            onResume: () => {
-                this.resumeGame();
-            }
-        });
+        // Photo Mode will be lazy-loaded on first toggle
+        this.photoMode = null;
 
         // Pause state
         this.paused = false;
@@ -342,10 +322,8 @@ class App {
                 this.devControls.frameObject(this.scene, 1.3);
             } else if (e.code === 'KeyP') {
                 if (e.ctrlKey || e.metaKey) {
-                    // Ctrl+P for photo mode
-                    if (this.photoMode) {
-                        this.photoMode.toggle();
-                    }
+                    // Ctrl+P for photo mode (lazy-load)
+                    this.togglePhotoMode();
                     e.preventDefault();
                 } else {
                     // Just P to cycle quality preset
@@ -382,9 +360,9 @@ class App {
         this.setEnvironment();
         this.load();
 
-        // Initialize Day/Night Manager (after scene is set up)
-        this.dayNightManager = null;
-        this.initializeDayNightManager();
+    // Initialize Day/Night Manager (after scene is set up)
+    this.dayNightManager = null;
+    this.initializeDayNightManager();
 
         this._onResize = this.resize.bind(this);
         window.addEventListener('resize', this._onResize);
@@ -396,11 +374,13 @@ class App {
     initializeDayNightManager() {
         // Wait a bit for lights to be added to scene
         setTimeout(() => {
-            this.dayNightManager = new DayNightManager(
-                this.scene,
-                this.renderer,
-                this.assetsPath
-            );
+            import('./components/DayNightManager.js').then(({ DayNightManager }) => {
+                this.dayNightManager = new DayNightManager(
+                    this.scene,
+                    this.renderer,
+                    this.assetsPath
+                );
+            }).catch((err) => console.error('Failed to load DayNightManager', err));
         }, 100);
     }
 
@@ -428,7 +408,63 @@ class App {
     showInteractiveMap() {
         if (this.interactiveMap) {
             this.interactiveMap.show();
+            return;
         }
+        // Lazy-load InteractiveMap on first use
+        this.showBusy('Loading map...');
+        import('./components/ui/InteractiveMap.js')
+            .then(({ InteractiveMap }) => {
+                this.interactiveMap = new InteractiveMap({
+                    scene: this.scene,
+                    camera: this.camera,
+                    getPlayerPosition: () => {
+                        const pos = this.world?.eve?.model?.position;
+                        return pos ? { x: pos.x, z: pos.z } : null;
+                    },
+                    getExtentsByFloor: () => {
+                        // Reuse logic provided earlier via minimapData
+                        const floors = { 1: { platforms: [], blocks: [] }, 2: { platforms: [], blocks: [] }, 3: { platforms: [], blocks: [] } };
+                        const pushPlatform = (key, model) => {
+                            if (!model) return;
+                            try {
+                                const box = new THREE.Box3().setFromObject(model);
+                                if (isFinite(box.min.x) && isFinite(box.max.x)) {
+                                    (floors[key].platforms).push({
+                                        minX: box.min.x, maxX: box.max.x,
+                                        minZ: box.min.z, maxZ: box.max.z,
+                                    });
+                                }
+                            } catch {}
+                        };
+                        const pushBlocks = (key, arr) => {
+                            if (!Array.isArray(arr)) return;
+                            for (const b of arr) {
+                                const m = b?.model;
+                                if (!m) continue;
+                                try {
+                                    const box = new THREE.Box3().setFromObject(m);
+                                    if (isFinite(box.min.x) && isFinite(box.max.x)) {
+                                        (floors[key].blocks).push({
+                                            minX: box.min.x, maxX: box.max.x,
+                                            minZ: box.min.z, maxZ: box.max.z,
+                                        });
+                                    }
+                                } catch {}
+                            }
+                        };
+                        pushPlatform(1, this.world?.structure?.platform?.model);
+                        pushBlocks(1, this.world?.structure?.platform?.concreteBlocks);
+                        pushPlatform(2, this.world?.platform_two?.model);
+                        pushPlatform(3, this.world?.platform_three?.model);
+                        pushBlocks(3, this.world?.platform_three?.concreteBlocks);
+                        return floors;
+                    },
+                    onClose: () => {}
+                });
+                this.interactiveMap.show();
+            })
+            .catch(err => console.error('Failed to load InteractiveMap', err))
+            .finally(() => this.hideBusy());
     }
     
     /**
@@ -437,7 +473,23 @@ class App {
     togglePhotoMode() {
         if (this.photoMode) {
             this.photoMode.toggle();
+            return;
         }
+        // Lazy-load PhotoMode on first use
+        this.showBusy('Loading photo mode...');
+        import('./components/ui/PhotoMode.js')
+            .then(({ PhotoMode }) => {
+                this.photoMode = new PhotoMode({
+                    scene: this.scene,
+                    camera: this.camera,
+                    renderer: this.renderer,
+                    onPause: () => this.pauseGame(),
+                    onResume: () => this.resumeGame(),
+                });
+                this.photoMode.toggle();
+            })
+            .catch(err => console.error('Failed to load PhotoMode', err))
+            .finally(() => this.hideBusy());
     }
 
     resize() {
@@ -812,6 +864,46 @@ class App {
 
         // You can integrate this with your audio context or sound effects
         // Example: if (this.audioContext) { this.audioContext.suspend(); }
+    }
+
+    // --- Lazy-load busy overlay helpers ---
+    _ensureBusyOverlay() {
+        if (this._busyOverlay) return;
+        const overlay = document.createElement('div');
+        overlay.id = 'lazy-busy-overlay';
+        Object.assign(overlay.style, {
+            position: 'fixed', inset: '0', display: 'none',
+            alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.35)', color: '#fff',
+            zIndex: 9999, fontFamily: 'sans-serif',
+        });
+        const box = document.createElement('div');
+        Object.assign(box.style, {
+            padding: '10px 16px', borderRadius: '8px',
+            background: 'rgba(20,20,20,0.85)', boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+        });
+        this._busyText = document.createElement('div');
+        this._busyText.textContent = 'Loading...';
+        box.appendChild(this._busyText);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        this._busyOverlay = overlay;
+        this._busyCount = 0;
+    }
+
+    showBusy(message = 'Loading...') {
+        this._ensureBusyOverlay();
+        this._busyCount = (this._busyCount || 0) + 1;
+        if (this._busyText) this._busyText.textContent = message;
+        this._busyOverlay.style.display = 'flex';
+    }
+
+    hideBusy() {
+        if (!this._busyOverlay) return;
+        this._busyCount = Math.max(0, (this._busyCount || 0) - 1);
+        if (this._busyCount === 0) {
+            this._busyOverlay.style.display = 'none';
+        }
     }
 
     render() {
