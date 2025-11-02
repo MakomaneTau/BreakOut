@@ -18,6 +18,15 @@ class platform {
 			new laser_barrier(game, { position: [-50, 7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
 		];
 
+		// Create 3D cubes with same properties as laser barriers
+		this.laserCubes = [];
+		this.createLaserCubes([
+			{ position: [-71, 7, 0], scale: [20, 2, 2], name: 'laser_cube_A' },
+			{ position: [-80, 7, 0], scale: [20, 2, 2], name: 'laser_cube_B' },
+			{ position: [-63, 7, 0], scale: [20, 2, 2], name: 'laser_cube_C' },
+			{ position: [-50, 7, 0], scale: [20, 2, 2], name: 'laser_cube_D' }
+		]);
+
 		// Flying cubes spawner (deterministic: edit coordinates/scale below)
 		this.flyingCubesSpawner = new FlyingCubesSpawner(this.scene, {
 			color: 0xff2222,
@@ -34,6 +43,43 @@ class platform {
 			]
 		});
 		this.load();
+	}
+
+	createLaserCubes(configs) {
+		configs.forEach(config => {
+			// Create cube geometry
+			const geometry = new THREE.BoxGeometry(1, 1, 1);
+			
+			// Create glowing laser-like material
+			const material = new THREE.MeshStandardMaterial({
+				color: 0xff0000, // Red laser color
+				emissive: 0xff0000, // Self-illuminating
+				emissiveIntensity: 0.8,
+				transparent: true,
+				opacity: 0.7,
+				metalness: 0.5,
+				roughness: 0.2
+			});
+			
+			const cube = new THREE.Mesh(geometry, material);
+			
+			// Apply position and scale
+			cube.position.set(config.position[0], config.position[1], config.position[2]);
+			cube.scale.set(config.scale[0], config.scale[1], config.scale[2]);
+			cube.rotation.y = Math.PI / 2;
+			
+			// Enable shadows
+			cube.castShadow = true;
+			cube.receiveShadow = true;
+			
+			// Set obstacle type for collision detection
+			cube.userData.type = 'laser';
+			cube.userData.initialY = config.position[1];
+			cube.name = config.name;
+			
+			this.scene.add(cube);
+			this.laserCubes.push(cube);
+		});
 	}
 
 	load() {
@@ -66,6 +112,13 @@ class platform {
 		if (!this.ready) return;
 		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
 		if (this.flyingCubesSpawner) this.flyingCubesSpawner.update(delta); // delta already seconds
+		
+		// Animate laser cubes (move up and down like laser barriers)
+		if (this.laserCubes) {
+			this.laserCubes.forEach(cube => {
+				cube.position.y = cube.userData.initialY + Math.sin(Date.now() * 0.005) * 2;
+			});
+		}
 	}
 }
 

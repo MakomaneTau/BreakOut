@@ -153,7 +153,8 @@ export class LaserBarrierSpawner {
 			});
 			const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 			cube.position.copy(clone.position);
-			cube.scale.copy(baseScale);
+			// Use custom scale: length=20, keep height and depth from barrier
+			cube.scale.set(20, baseScale.y, baseScale.z);
 			cube.rotation.y = LASER_BARRIER_ROT_Y;
 			cube.castShadow = true;
 			cube.receiveShadow = true;
@@ -163,9 +164,11 @@ export class LaserBarrierSpawner {
 			const target = new THREE.Vector3(this.options.end[0], this.options.end[1], z);
 			const direction = new THREE.Vector3().subVectors(target, clone.position).normalize();
 			const speed = this._rand(this.options.speedMin, this.options.speedMax);
+			
+			// Create velocity for barrier
 			clone.userData = clone.userData || {};
-			clone.userData.velocity = direction.multiplyScalar(speed);
-			clone.userData.target = target;
+			clone.userData.velocity = direction.clone().multiplyScalar(speed);
+			clone.userData.target = target.clone();
 
 			// Give cube the same movement data
 			cube.userData.velocity = direction.clone().multiplyScalar(speed);
