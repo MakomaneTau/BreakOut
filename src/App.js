@@ -36,7 +36,7 @@ class App {
         this.loadingBar = new LoadingBar();
         this.loadingBar.visible = false;
         this.clock = new THREE.Clock();
-        this.assetsPath = '/assets/';
+        this.assetsPath = '/public/assets/';
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(
