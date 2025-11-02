@@ -1,10 +1,7 @@
 import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
-import { concrete_blocks } from './concrete_blocks.js';
-import { spinning_blade } from './spinning_blade.js';
 import { laser_barrier } from './laser_barrier.js';
-import { createPlatformMaterial } from '../../shaders/platformShader.js';
-import { Helicopter } from '../helicopter.js';
+import { FlyingCubesSpawner } from './flying_cubes.js';
 
 class platform {
 	constructor(game, opts = {}) {
@@ -13,47 +10,77 @@ class platform {
 		this.scene = game.scene;
 		this.ready = false;
 		this.model = null;
-		this.shaderMaterials = []; // Store shader materials for time updates
-		this.level = opts.level || game.level || 1;
-		this.helicopter = null; // Helicopter at finish line (will be created after platform loads)
-		this.game = game; // Store game reference for helicopter creation
-		
-		// Play mode (level 4) has no obstacles - skip creating them
-		if (this.level < 4) {
-			this.concreteBlocks = [
-				new concrete_blocks(game, { position: [-39, 4.6, -3], scale: [6.5, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-36, 4.6, 3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-33, 4.6, -1], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-29, 4.6, 3.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-26, 4.6, 1.5], scale: [9, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-20, 4.6, -4.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-17, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-13, 4.6, -3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-10, 4.6, 4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-6, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-				new concrete_blocks(game, { position: [-2.2, 4.6, -4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			];
 
-			this.spinningBlades = [
-				new spinning_blade(game, { position: [-26, 4.2, -3.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-				new spinning_blade(game, { position: [-2.2, 4.2, 1], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-				new spinning_blade(game, { position: [-39, 4.2, 0.5], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-				new spinning_blade(game, { position: [-21, 4.2, 2], scale: [0.025, 0.025, 0.025], rotationY: Math.PI / 2, name: 'blade_A' }),
-			];
+		// Add laser barriers
+		this.laserBarriers = [
+			new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
+			new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_B' })
+		];
 
-			this.laserBarriers = [
-				new laser_barrier(game, { position: [-10, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' }),
-				new laser_barrier(game, { position: [-32, 8.7, 0], scale: [4.5, 2, 2], rotationY: Math.PI / 2, name: 'laser_A' })
-			];
-			
-			// Helicopter will be created after platform loads to calculate its actual dimensions
-		} else {
-			// Play mode - no obstacles
-			this.concreteBlocks = [];
-			this.spinningBlades = [];
-			this.laserBarriers = [];
-		}
+		// Create 3D cubes with same properties as laser barriers
+		this.laserCubes = [];
+		this.createLaserCubes([
+			{ position: [-10, 8.7, 0], scale: [20, 2, 0.2], name: 'laser_cube_A' },
+			{ position: [-32, 8.7, 0], scale: [20, 2, 0.2], name: 'laser_cube_B' }
+		]);
+
+		// Flying cubes spawner
+		this.flyingCubesSpawner = new FlyingCubesSpawner(this.scene, {
+			color: 0xff2222,
+			useBasicMaterial: false,
+			loop: true,
+			debug: false,
+			cubeConfigs: [
+				{ start: [-40, 4.5, -3.5], end: [-5, 4.5, -3.5], scale: [1.2, 1.0, 2.5], speed: 0.04 },
+				{ start: [-40, 4.5, -1.0], end: [-5, 4.5, -1.0], scale: [1.0, 1.0, 2.0], speed: 0.05 },
+				{ start: [-40, 4.5, 1.5], end: [-5, 4.5, 1.5], scale: [1.5, 1.0, 3.0], speed: 0.06 },
+				{ start: [-40, 4.5, 3.5], end: [-5, 4.5, 3.5], scale: [0.9, 1.0, 2.2], speed: 0.045 },
+
+				{ start: [-40, 5.5, -2], end: [-5, 5.5, -2], scale: [0.2, 3.0, 2.5], speed: 0.07 },
+				{ start: [-40, 5.5, -1.0], end: [-5, 5.5, -1.0], scale: [0.2, 3.0, 2.0], speed: 0.09 },
+				{ start: [-40, 5.5, -4.5], end: [-5, 5.5, -4.5], scale: [0.2, 3.0, 3.0], speed: 0.08 },
+				{ start: [-40, 4.5, 4.5], end: [-5, 4.5, 4.5], scale: [0.2, 1.0, 2.9], speed: 0.035 },
+			]
+		});
+
 		this.load();
+	}
+
+	createLaserCubes(configs) {
+		configs.forEach(config => {
+			// Create cube geometry
+			const geometry = new THREE.BoxGeometry(1, 1, 1);
+
+			// Create glowing laser-like material
+			const material = new THREE.MeshStandardMaterial({
+				color: 0xff0000, // Red laser color
+				emissive: 0xff0000, // Self-illuminating
+				emissiveIntensity: 0.8,
+				transparent: true,
+				opacity: 0.7,
+				metalness: 0.5,
+				roughness: 0.2
+			});
+
+			const cube = new THREE.Mesh(geometry, material);
+
+			// Apply position and scale
+			cube.position.set(config.position[0], config.position[1], config.position[2]);
+			cube.scale.set(config.scale[0], config.scale[1], config.scale[2]);
+			cube.rotation.y = Math.PI / 2;
+
+			// Enable shadows
+			cube.castShadow = true;
+			cube.receiveShadow = true;
+
+			// Set obstacle type for collision detection
+			cube.userData.type = 'laser';
+			cube.userData.initialY = config.position[1];
+			cube.name = config.name;
+
+			this.scene.add(cube);
+			this.laserCubes.push(cube);
+		});
 	}
 
 	load() {
@@ -135,25 +162,14 @@ class platform {
 
 	update(time, delta) {
 		if (!this.ready) return;
-		// Update shader time uniforms
-		this.shaderMaterials.forEach(mat => {
-			if (mat.uniforms && mat.uniforms.uTime) {
-				mat.uniforms.uTime.value = time;
-			}
-		});
-		// Only update obstacles if they exist (not in play mode)
-		if (this.concreteBlocks && this.concreteBlocks.length > 0) {
-			this.concreteBlocks.forEach(cb => cb.update(time, delta));
-		}
-		if (this.spinningBlades && this.spinningBlades.length > 0) {
-			this.spinningBlades.forEach(sb => sb.update(time, delta));
-		}
-		if (this.laserBarriers && this.laserBarriers.length > 0) {
-			this.laserBarriers.forEach(lb => lb.update(time, delta));
-		}
-		// Update helicopter animation
-		if (this.helicopter && this.helicopter.ready) {
-			this.helicopter.update(time, delta);
+		if (this.laserBarriers) this.laserBarriers.forEach(lb => lb.update(time, delta));
+		if (this.flyingCubesSpawner) this.flyingCubesSpawner.update(delta);
+
+		// Animate laser cubes (move up and down like laser barriers)
+		if (this.laserCubes) {
+			this.laserCubes.forEach(cube => {
+				cube.position.y = cube.userData.initialY + Math.sin(Date.now() * 0.005) * 2;
+			});
 		}
 	}
 }

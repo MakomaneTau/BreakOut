@@ -11,7 +11,6 @@ import { wild_island } from './location/wild_island.js';
 import { platform as platform_two } from './course_two/platform.js';
 import { platform as platform_three } from './course_three/platform.js';
 import { platform as platform_four } from './course_four/platform.js';
-import { CollisionManager } from './collision/CollisionManager.js';
 
 class World {
     loadSkybox() {
@@ -32,9 +31,6 @@ class World {
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
         this.level = Math.max(1, Math.min(4, parseInt(opts.level || game.level || 1)));
-        // Collision system
-        this.collisionManager = new CollisionManager(this.level);
-        this.wallColliders = [];
 
         this.tmpPos = new Vector3();
     this.ready = false;
@@ -92,8 +88,7 @@ class World {
             this.eve = new Eve({
                 assetsPath: this.assetsPath,
                 loadingBar: this.loadingBar,
-                scene: this.scene,
-                collisionManager: this.collisionManager
+                scene: this.scene
             });
             // Connect to helicopter if appears later
             setTimeout(() => this.connectCharacterToHelicopter(), 1500);
@@ -102,16 +97,6 @@ class World {
         if (!this.eve && retries < maxRetries) {
             setTimeout(() => this._eveLoadCheck(retries + 1), delay);
         }
-    }
-
-    // Attempt obstacle registration until all are registered (levels 1-3)
-    _registerObstaclesIfNeeded() {
-        if (!this.collisionManager || this.level >= 4) return;
-        this.collisionManager.registerObstaclesForLevel({
-            structure: this.structure,
-            platform_two: this.platform_two,
-            platform_three: this.platform_three,
-        });
     }
 
     update(time, delta) {
@@ -124,29 +109,12 @@ class World {
         if (this.level >= 3 && this.level < 4 && this.platform_three) this.platform_three.update(time, delta);
         if (this.level >= 4 && this.platform_four) this.platform_four.update(time, delta);
 
-        // Register static obstacles as they become ready (retries until complete)
-        this._registerObstaclesIfNeeded();
-
-        // Sync dynamic obstacles every frame (flying cubes, spawned lasers) - skip for play mode
-        if (this.collisionManager && this.collisionManager.syncDynamicObstacles && this.level < 4) {
-            this.collisionManager.syncDynamicObstacles({
-                structure: this.structure,
-                platform_two: this.platform_two,
-                platform_three: this.platform_three
-            });
-        }
-
         if (this.eve) this.eve.update(time, delta);
     }
 
     get position() {
         if (this.model) this.model.getWorldPosition(this.tmpPos);
         return this.tmpPos;
-    }
-
-    // Get all wall colliders for external collision checking
-    getWallColliders() {
-        return this.collisionManager ? this.collisionManager.getCollidersByType('wall') : [];
     }
 }
 

@@ -56,9 +56,6 @@ class App {
     constructor(opts = {}) {
         this.level = Math.max(1, Math.min(4, parseInt(opts.level) || 1));
 
-    // Collision system removed; no collision manager
-    this.collisionManager = null;
-
         const container = document.createElement('div');
         document.body.appendChild(container);
 

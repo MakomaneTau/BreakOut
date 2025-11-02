@@ -10,7 +10,6 @@ class Eve {
     this.assetsPath = game.assetsPath;
     this.loadingBar = game.loadingBar;
     this.scene = game.scene;
-    this.collisionManager = game.collisionManager;
     this.ready = false;
     this.model = null;
 
@@ -41,19 +40,12 @@ class Eve {
     this.jumpDistance = 1.67;
     this.jumpDistanceBoost = 2.0;
 
-    // Pushback related (smooth pushback from flying cubes)
-    this.pushbackVelocity = new THREE.Vector3();
-    this.isPushedBack = false;
-    this.pushbackDecay = 8.0; // How quickly pushback velocity decays
-
     this.mixer = null;
     this.animations = [];
     this.actions = {};
     this.actionDurations = {};
     this.currentAction = null;
     this.currentActionName = null;
-
-    this.collider = null;
 
     this.winAnimation = new WinAnimation({
       scene: this.scene,
@@ -128,11 +120,6 @@ class Eve {
         if (intersects.length > 0) {
           const groundY = intersects[0].point.y + this.footOffset;
           this.model.position.y = groundY;
-        }
-
-        // Collision box / collider
-        if (this.collisionManager) {
-          this.collider = this.collisionManager.add(this.model, 'box');
         }
 
         // Setup mixer & strip root motion
@@ -213,9 +200,6 @@ class Eve {
                   .normalize();
                 const candidate = this.model.position.clone().add(forward.multiplyScalar(5));
                 this.model.position.copy(candidate);
-                if (this.collider && typeof this.collider.update === 'function') {
-                  this.collider.update();
-                }
               }
             } catch (err) {
               console.error('Error applying post-roll teleport:', err);
@@ -366,44 +350,6 @@ class Eve {
     return 'road';
   }
 
-  checkCollisionAtPosition(testPosition) {
-    // Play mode (level 4) has no collision system - always allow movement
-    if (this.collisionManager && this.collisionManager.level >= 4) {
-      return false;
-    }
-    
-    if (!this.collider || !this.collisionManager) return false;
-
-    // Check for collision at test position using the new method
-    const collision = this.collisionManager.findCollisionAtPosition(this.collider, testPosition);
-
-    // Handle collision result
-    if (collision) {
-      // finish line special case - allow passing through
-      if (collision.mesh.userData?.type === 'finish_line') {
-        return false;
-      }
-
-      // Get obstacle type
-      const obstacleType = collision.mesh.userData?.type || this.getObstacleTypeFromName(collision.mesh.name);
-      
-      // Flying cubes allow movement but apply pushback (handled separately)
-      if (obstacleType === 'flying_cube') {
-        // Allow movement, pushback will be applied in checkDamageCollisions
-        return false;
-      }
-      
-      // Apply damage for other obstacles and block movement
-      this.handleCollisionDamage(collision);
-      
-      // Return true to block movement
-      return true;
-    }
-    
-    // No collision - allow movement
-    return false;
-  }
-
   onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
     console.log(`Took ${damage} damage from ${damageType}. Health: ${currentHealth}/${maxHealth}`);
   }
@@ -449,10 +395,6 @@ class Eve {
     this.jumpTimer = 0;
     this.onGround = true;
     
-    // Reset pushback state
-    this.pushbackVelocity.set(0, 0, 0);
-    this.isPushedBack = false;
-    
     // Reset rotation
     this.model.rotation.y = -Math.PI / 2;
     
@@ -474,11 +416,6 @@ class Eve {
       // Fallback to a safe Y position if no ground found
       this.model.position.y = 1;
       console.log(`Player reset to fallback position: (${startX}, 1, ${startZ})`);
-    }
-    
-    // Update collider if it exists
-    if (this.collider && typeof this.collider.update === 'function') {
-      this.collider.update();
     }
     
     // Reset animation to idle
@@ -529,90 +466,10 @@ class Eve {
     return this.winAnimation.isRunning();
   }
 
-  handleCollisionDamage(collision) {
-    if (!this.health || !this.health.isAlive) return;
-
-    const mesh = collision.mesh;
-    const obstacleType = mesh.userData?.type || this.getObstacleTypeFromName(mesh.name);
-
-    // Flying cubes push the player back instead of dealing damage
-    if (obstacleType === 'flying_cube') {
-      this.handleFlyingCubePushback(collision);
-      return;
-    }
-
-    let damage = HealthConfig.OBSTACLE_DAMAGE;
-    let damageType = DamageType.OBSTACLE;
-    switch (obstacleType) {
-      case 'concrete_block':
-        damage = HealthConfig.OBSTACLE_DAMAGE;
-        damageType = DamageType.OBSTACLE;
-        break;
-      case 'spinning_blade':
-        damage = HealthConfig.TRAP_DAMAGE;
-        damageType = DamageType.TRAP;
-        break;
-      case 'laser':
-      case 'laser_barrier':
-        damage = HealthConfig.TRAP_DAMAGE;
-        damageType = DamageType.TRAP;
-        break;
-      default:
-        const name = mesh.name.toLowerCase();
-        if (name.includes('blade') || name.includes('spinning')) {
-          damage = HealthConfig.TRAP_DAMAGE;
-          damageType = DamageType.TRAP;
-        } else if (name.includes('laser')) {
-          damage = HealthConfig.TRAP_DAMAGE;
-          damageType = DamageType.TRAP;
-        } else if (name.includes('cube')) {
-          // Double-check: if it's a cube but wasn't caught by type, still push back
-          this.handleFlyingCubePushback(collision);
-          return;
-        }
-        break;
-    }
-
-    this.takeDamage(damage, damageType);
-  }
-
-  /**
-   * Handle pushback when player collides with a flying cube
-   * @param {Object} collision - Collision object containing the cube mesh
-   */
-  handleFlyingCubePushback(collision) {
-    if (!this.model || !collision || !collision.mesh) return;
-
-    const cube = collision.mesh;
-    const playerPos = this.model.position;
-    const cubePos = cube.position;
-
-    // Calculate pushback direction (away from cube)
-    const pushbackDir = new THREE.Vector3()
-      .subVectors(playerPos, cubePos)
-      .setY(0) // Keep pushback horizontal only
-      .normalize();
-
-    // Apply smooth pushback velocity instead of instant teleport
-    const pushbackStrength = 12.0; // Initial velocity strength
-    this.pushbackVelocity.copy(pushbackDir.multiplyScalar(pushbackStrength));
-    this.isPushedBack = true;
-
-    // Optional: Add visual/audio feedback
-    if (!this._lastPushbackLog || Date.now() - this._lastPushbackLog > 500) {
-      console.log('Player pushed back by flying cube!');
-      this._lastPushbackLog = Date.now();
-    }
-  }
-
   getObstacleTypeFromName(name) {
     if (!name) return 'unknown';
     const lower = name.toLowerCase();
-    if (lower.includes('concrete') || lower.includes('block')) {
-      return 'concrete_block';
-    } else if (lower.includes('blade') || lower.includes('spinning')) {
-      return 'spinning_blade';
-    } else if (lower.includes('laser')) {
+    if (lower.includes('laser')) {
       return 'laser';
     }
     return 'unknown';
@@ -628,8 +485,6 @@ class Eve {
 
     // If controls disabled (e.g. during escape), skip movement
     if (this.controlsDisabled) {
-      // Still check collisions even when controls are disabled
-      this.checkDamageCollisions();
       return;
     }
 
@@ -694,40 +549,13 @@ class Eve {
       }
     }
 
-    // Apply smooth pushback velocity from flying cube collisions
-    if (this.isPushedBack && this.pushbackVelocity.length() > 0.01) {
-      const pushbackMove = this.pushbackVelocity.clone().multiplyScalar(delta);
-      const testPos = this.model.position.clone().add(pushbackMove);
-      
-      // Only apply pushback if it doesn't cause collision with solid obstacles
-      if (!this.checkCollisionAtPosition(testPos)) {
-        this.model.position.add(pushbackMove);
-        if (this.collider && typeof this.collider.update === 'function') {
-          this.collider.update();
-        }
-      }
-      
-      // Decay the pushback velocity smoothly
-      this.pushbackVelocity.multiplyScalar(Math.max(0, 1 - this.pushbackDecay * delta));
-      
-      // Stop pushback when velocity is negligible
-      if (this.pushbackVelocity.length() < 0.01) {
-        this.pushbackVelocity.set(0, 0, 0);
-        this.isPushedBack = false;
-      }
-    }
-
     let desiredAction = 'idle';
     let isMoving = false;
 
     if (this.isRolling) {
       // roll movement
       const deltaMove = this.rollVelocity.clone().multiplyScalar(delta);
-      const testPos = this.model.position.clone().add(deltaMove);
-      if (!this.checkCollisionAtPosition(testPos)) {
-        this.model.position.add(deltaMove);
-        if (this.collider && typeof this.collider.update === 'function') this.collider.update();
-      }
+      this.model.position.add(deltaMove);
       this.rollTimer += delta;
       if (this.rollTimer >= this.rollDuration) {
         this.isRolling = false;
@@ -744,11 +572,7 @@ class Eve {
           this.jumpVelocity.z * delta
         );
         const doubledMove = singleDeltaMove.clone().multiplyScalar(this.jumpDistanceBoost || 1.0);
-        const testPos = this.model.position.clone().add(doubledMove);
-        if (!this.checkCollisionAtPosition(testPos)) {
-          this.model.position.add(doubledMove);
-          if (this.collider && typeof this.collider.update === 'function') this.collider.update();
-        }
+        this.model.position.add(doubledMove);
         this.jumpTimer += delta;
         if (this.jumpTimer >= this.jumpDuration) {
           this.isJumping = false;
@@ -803,23 +627,12 @@ class Eve {
         movementVector.normalize();
         movementVector.multiplyScalar(this.runSpeed * delta);
 
-        const testPos = this.model.position.clone().add(movementVector);
-        if (!this.checkCollisionAtPosition(testPos)) {
-          this.model.position.add(movementVector);
-          // Update collider after movement to ensure collision detection works
-          if (this.collider && typeof this.collider.update === 'function') {
-            this.collider.update();
-          }
-        }
+        this.model.position.add(movementVector);
 
         const groundType = this.detectGroundType();
         if (groundType === 'stairs' && this.keyStates['w']) {
           desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
           this.model.position.y += (this.runSpeed * 0.6) * delta;
-          // Update collider after vertical movement on stairs
-          if (this.collider && typeof this.collider.update === 'function') {
-            this.collider.update();
-          }
         } else {
           if (this.keyStates['w'] && this.keyStates['a']) {
             desiredAction = this.findActionNameMatch('leftslide') || 'LeftSlide';
@@ -841,36 +654,10 @@ class Eve {
         }
       } else {
         desiredAction = this.findActionNameMatch('idle') || 'idle';
-        // Even when idle, ensure collider is updated so standing collisions are detected
-        if (this.collider && typeof this.collider.update === 'function') {
-          this.collider.update();
-        }
       }
     }
-
-    // Check for collisions after all movement updates are complete
-    // This ensures the collider position is up-to-date and standing collisions are detected
-    this.checkDamageCollisions();
 
     this.playAction(desiredAction, this.fadeDuration);
-  }
-
-  checkDamageCollisions() {
-    // Play mode (level 4) has no collision system - skip collision checks
-    if (this.collisionManager && this.collisionManager.level >= 4) {
-      return;
-    }
-    
-    if (!this.collider || !this.collisionManager || !this.health || !this.health.isAlive) return;
-    this.collider.update();
-    const collision = this.collisionManager.findCollisionFor(this.collider);
-    if (collision) {
-      if (collision.mesh.userData?.type === 'finish_line') {
-        this.triggerWinAnimation();
-        return;
-      }
-      this.handleCollisionDamage(collision);
-    }
   }
 }
 
