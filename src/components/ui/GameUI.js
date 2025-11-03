@@ -17,8 +17,12 @@ export class GameUI {
     this.onToggleDayNight = options.onToggleDayNight || (() => {});
     this.onShowMap = options.onShowMap || (() => {});
     this.onTogglePhotoMode = options.onTogglePhotoMode || (() => {});
-    // Minimap providers
-    // options.minimapData?: { getPlayerPosition:()=>({x,z}|null), getExtentsByFloor:()=>({1:[...],2:[...],3:[...]}) }
+  // Minimap providers
+  // options.minimapData?: {
+  //   getPlayerPosition:()=>({x,z}|null),
+  //   getExtentsByFloor:()=>({1:{platforms:[],blocks:[]},2:{...},3:{...}}),
+  //   getObjectsByFloor?:(floor:number)=>Array<{minX,maxX,minZ,maxZ,type}>
+  // }
     this.minimapData = options.minimapData || null;
     
     // State
@@ -540,11 +544,12 @@ export class GameUI {
   }
 
   _normalizeFloorData(floorData) {
-    if (!floorData) return { platforms: [], blocks: [] };
-    if (Array.isArray(floorData)) return { platforms: floorData, blocks: [] };
+    if (!floorData) return { platforms: [], blocks: [], obstacles: [] };
+    if (Array.isArray(floorData)) return { platforms: floorData, blocks: [], obstacles: [] };
     const platforms = Array.isArray(floorData.platforms) ? floorData.platforms : [];
     const blocks = Array.isArray(floorData.blocks) ? floorData.blocks : [];
-    return { platforms, blocks };
+    const obstacles = Array.isArray(floorData.obstacles) ? floorData.obstacles : [];
+    return { platforms, blocks, obstacles };
   }
 
   _computeWorldBounds(extents) {
@@ -590,7 +595,7 @@ export class GameUI {
     const hash = JSON.stringify({f:mm.selectedFloor,e:fd});
     if (!force && hash === mm.extentsHash && mm.worldBounds) return;
     mm.extentsHash = hash;
-    mm.worldBounds = this._computeWorldBounds([...(fd.platforms||[]), ...(fd.blocks||[])]);
+    mm.worldBounds = this._computeWorldBounds([...(fd.platforms||[]), ...(fd.blocks||[]), ...(fd.obstacles||[])]);
 
     const ctx = mm.bgCtx; ctx.clearRect(0,0,mm.width,mm.height);
     // Background
@@ -613,6 +618,21 @@ export class GameUI {
         const x=Math.min(p1.u,p2.u), y=Math.min(p1.v,p2.v), w=Math.abs(p2.u-p1.u), h=Math.abs(p2.v-p1.v);
         ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
       }
+      // Draw static obstacles (if any provided as part of floor data)
+      if (fd.obstacles && fd.obstacles.length) {
+        for (const e of fd.obstacles) {
+          const p1=this._worldToCanvas(e.minX,e.minZ); const p2=this._worldToCanvas(e.maxX,e.maxZ); if(!p1||!p2) continue;
+          const x=Math.min(p1.u,p2.u), y=Math.min(p1.v,p2.v), w=Math.abs(p2.u-p1.u), h=Math.abs(p2.v-p1.v);
+          // Color by type
+          const type = e.type || 'obstacle';
+          if (type === 'laser') { ctx.fillStyle='rgba(255,77,77,0.45)'; ctx.strokeStyle='rgba(255,77,77,0.95)'; }
+          else if (type === 'flying_cube') { ctx.fillStyle='rgba(255,159,67,0.45)'; ctx.strokeStyle='rgba(255,159,67,0.95)'; }
+          else if (type === 'finish_line') { ctx.fillStyle='rgba(76,217,100,0.45)'; ctx.strokeStyle='rgba(76,217,100,0.95)'; }
+          else if (type === 'helicopter') { ctx.fillStyle='rgba(88,86,214,0.45)'; ctx.strokeStyle='rgba(88,86,214,0.95)'; }
+          else { ctx.fillStyle='rgba(200,200,200,0.35)'; ctx.strokeStyle='rgba(230,230,230,0.9)'; }
+          ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+        }
+      }
     } else {
       ctx.fillStyle='#fff'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
       ctx.fillText('No floor data', mm.width/2, mm.height/2);
@@ -622,10 +642,37 @@ export class GameUI {
   _drawPlayerPointer() {
     const mm=this._mm; if(!mm.fgCtx || !mm.worldBounds) return;
     const ctx=mm.fgCtx; ctx.clearRect(0,0,mm.width,mm.height);
+    // Draw dynamic objects first so player marker appears on top
+    this._drawDynamicObjects();
     const p=this.minimapData?.getPlayerPosition?.(); if(!p) return;
     const uv=this._worldToCanvas(p.x,p.z); if(!uv) return;
     ctx.fillStyle='rgba(255,107,107,0.95)'; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.arc(uv.u,uv.v,4,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+
+  _getObjectsByFloor(floor) {
+    if (!this.minimapData || typeof this.minimapData.getObjectsByFloor !== 'function') return [];
+    try { return this.minimapData.getObjectsByFloor(floor) || []; } catch { return []; }
+  }
+
+  _drawDynamicObjects() {
+    const mm=this._mm; if(!mm.fgCtx || !mm.worldBounds) return;
+    const ctx=mm.fgCtx;
+    const objects = this._getObjectsByFloor(mm.selectedFloor);
+    if (!objects || !objects.length) return;
+    for (const e of objects) {
+      const hasExtents = e && isFinite(e.minX) && isFinite(e.maxX) && isFinite(e.minZ) && isFinite(e.maxZ);
+      if (!hasExtents) continue;
+      const p1=this._worldToCanvas(e.minX,e.minZ); const p2=this._worldToCanvas(e.maxX,e.maxZ); if(!p1||!p2) continue;
+      const x=Math.min(p1.u,p2.u), y=Math.min(p1.v,p2.v), w=Math.abs(p2.u-p1.u), h=Math.abs(p2.v-p1.v);
+      const type = e.type || 'obstacle';
+      if (type === 'laser') { ctx.fillStyle='rgba(255,77,77,0.45)'; ctx.strokeStyle='rgba(255,77,77,0.95)'; }
+      else if (type === 'flying_cube') { ctx.fillStyle='rgba(255,159,67,0.45)'; ctx.strokeStyle='rgba(255,159,67,0.95)'; }
+      else if (type === 'finish_line') { ctx.fillStyle='rgba(76,217,100,0.45)'; ctx.strokeStyle='rgba(76,217,100,0.95)'; }
+      else if (type === 'helicopter') { ctx.fillStyle='rgba(88,86,214,0.45)'; ctx.strokeStyle='rgba(88,86,214,0.95)'; }
+      else { ctx.fillStyle='rgba(200,200,200,0.35)'; ctx.strokeStyle='rgba(230,230,230,0.9)'; }
+      ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+    }
   }
 
   /**

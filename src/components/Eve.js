@@ -72,7 +72,7 @@ class Eve {
       maxLives: HealthConfig.MAX_LIVES,
       permadeath: HealthConfig.PERMADEATH_MODE,
       initialPosition: { x: 3, y: 1, z: 0 }, // Start position matches resetToStartPosition
-      onDamage: this.onPlayerDamage.bind(this),
+      onDamage: null,
       onHeal: this.onPlayerHeal.bind(this),
       onDeath: this.onPlayerDeath.bind(this),
       onRespawn: this.onPlayerRespawn.bind(this),
@@ -358,10 +358,6 @@ class Eve {
     return 'road';
   }
 
-  onPlayerDamage(damage, currentHealth, maxHealth, damageType) {
-    console.log(`Took ${damage} damage from ${damageType}. Health: ${currentHealth}/${maxHealth}`);
-    
-  }
 
   onPlayerHeal(amount, currentHealth, maxHealth) {
     console.log(`Healed ${amount}. Health: ${currentHealth}/${maxHealth}`);
@@ -429,7 +425,7 @@ class Eve {
     
     // Reset animation to idle
     if (this.actions.idle) {
-      this.setAction('idle');
+      this.playAction('idle');
     }
     
     // Note: Don't modify this.ready here - let the caller handle it

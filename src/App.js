@@ -69,7 +69,7 @@ class App {
         // Initialize Health UI
         this.healthUI = new HealthUI({
             onRestart: () => {
-                this.restartGame();
+                this.showMainMenu();
             }
         });
 
@@ -130,7 +130,7 @@ class App {
                 this.showMainMenu();
             },
             onRestart: () => {
-                this.restartGame();
+                this.showMainMenu();
             }
         });
 
@@ -147,7 +147,7 @@ class App {
         // Initialize Lose Component
         this.loseComponent = new LoseComponent({
             onRestart: () => {
-                this.restartGame();
+                this.showMainMenu();
             },
             onMainMenu: () => {
                 this.showMainMenu();
@@ -206,6 +206,67 @@ class App {
                 pushPlatform(3, this.world?.platform_three?.model);
                 pushBlocks(3, this.world?.platform_three?.concreteBlocks);
                 return floors;
+            },
+            // Dynamic/static objects (obstacles, finish line, helicopter), per floor
+            getObjectsByFloor: (floor) => {
+                const out = [];
+                const pushObj = (type, objOrModel) => {
+                    const obj = objOrModel?.model || objOrModel;
+                    if (!obj) return;
+                    try {
+                        const box = new THREE.Box3().setFromObject(obj);
+                        if ([box.min.x, box.max.x, box.min.z, box.max.z].every(isFinite)) {
+                            out.push({ minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z, type });
+                        }
+                    } catch {}
+                };
+
+                if (floor === 1) {
+                    const plat = this.world?.structure?.platform;
+                    // Lasers
+                    if (Array.isArray(plat?.laserBarriers)) {
+                        for (const lb of plat.laserBarriers) pushObj('laser', lb?.model);
+                    }
+                    if (Array.isArray(plat?.laserCubes)) {
+                        for (const cube of plat.laserCubes) pushObj('laser', cube);
+                    }
+                    // Flying cubes
+                    const cubes = plat?.flyingCubesSpawner?.cubes;
+                    if (Array.isArray(cubes)) {
+                        for (const c of cubes) pushObj('flying_cube', c);
+                    }
+                    // Finish line and helicopter
+                    pushObj('finish_line', plat?.finishLine?.model);
+                    pushObj('helicopter', plat?.helicopter?.model);
+                } else if (floor === 2) {
+                    const plat2 = this.world?.platform_two;
+                    if (Array.isArray(plat2?.laserBarriers)) {
+                        for (const lb of plat2.laserBarriers) pushObj('laser', lb?.model);
+                    }
+                    if (Array.isArray(plat2?.laserCubes)) {
+                        for (const cube of plat2.laserCubes) pushObj('laser', cube);
+                    }
+                    const cubes2 = plat2?.flyingCubesSpawner?.cubes;
+                    if (Array.isArray(cubes2)) {
+                        for (const c of cubes2) pushObj('flying_cube', c);
+                    }
+                    pushObj('finish_line', plat2?.finishLine?.model);
+                    pushObj('helicopter', plat2?.helicopter?.model);
+                } else if (floor === 3) {
+                    const plat3 = this.world?.platform_three;
+                    const cubes3 = plat3?.flyingCubesSpawner?.cubes;
+                    if (Array.isArray(cubes3)) {
+                        for (const c of cubes3) pushObj('flying_cube', c);
+                    }
+                    // Laser barrier spawner may include both clone models and invisible cubes
+                    const barriers = plat3?.laserBarrierSpawner?.barriers;
+                    if (Array.isArray(barriers)) {
+                        for (const b of barriers) pushObj('laser', b);
+                    }
+                    pushObj('finish_line', plat3?.finishLine?.model);
+                    pushObj('helicopter', plat3?.helicopter?.model);
+                }
+                return out;
             }
         };
 
@@ -217,7 +278,7 @@ class App {
                 this.settingsUI.show();
             },
             onRestart: () => {
-                this.restartGame();
+                this.showMainMenu();
             },
             onMainMenu: () => {
                 this.showMainMenu();
@@ -260,7 +321,7 @@ class App {
         // Scene + lights
         this.scene = new THREE.Scene();
     // Global collision system (used by all levels and player)
-    this.collisionSystem = new CollisionSystem(this.scene);
+    this.collisionSystem = new CollisionSystem(this.scene, { pushback: 0.25 });
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         this.scene.add(hemiLight);
 
@@ -316,7 +377,7 @@ class App {
             onResume: () => this.setPaused(false),
             onRestart: () => {
                 this.setPaused(false);
-                this.restartGame();
+                this.showMainMenu();
             },
             onMainMenu: () => {
                 this.quitToMainMenu();
@@ -608,6 +669,12 @@ class App {
         this.menuUI.hide();
         this.gameUI.show(); // Show game UI during gameplay
 
+        // Ensure timer starts fresh for each new session
+        if (this.timerUI) {
+            this.timerUI.resetTimer();
+            this.timerUI.resumeTimer();
+        }
+
         // Resume any paused animations
         if (this.world?.ready) {
             // Game logic continues
@@ -655,6 +722,11 @@ class App {
     showMainMenu() {
         this.isGameStarted = false;
         this.isGamePaused = false;
+        // Reset and pause timer while in main menu
+        if (this.timerUI) {
+            this.timerUI.resetTimer();
+            this.timerUI.pauseTimer();
+        }
         this.menuUI.show();
         this.gameUI.hide(); // Hide game UI when in main menu
     }
@@ -702,6 +774,8 @@ class App {
         if (this.world?.eve?.health) {
             this.world.eve.health.reset();
             console.log('Health system reset - Player is alive again');
+            // Grant brief invulnerability after restart to avoid immediate obstacle damage
+            try { this.world.eve.health.setInvulnerable(1.5); } catch {}
         }
 
         // Reset win animation and helicopter escape states

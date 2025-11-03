@@ -16,7 +16,10 @@ export class HealthUI {
     this.isFlashing = false;
     
     // Callback for restart button
-    this.onRestart = options.onRestart || (() => location.reload());
+    // Default no-op to avoid hard page reloads; App wires a proper handler.
+    this.onRestart = options.onRestart || (() => {
+      try { console.warn('HealthUI.onRestart not provided; ignoring restart click.'); } catch {}
+    });
     
     this.createUI();
   }

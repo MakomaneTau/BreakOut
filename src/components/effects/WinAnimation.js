@@ -75,18 +75,14 @@ export class WinAnimation {
         window.location.href = `?level=${prevLevel}`;
       },
       onRestart: () => {
-        console.log('Restarting current level');
-        // Hide popup before restart
+        console.log('Restart clicked - returning to main menu');
+        // Hide popup and cleanup, then go to main menu instead of reloading/restarting
         if (this.missionPopup) {
           this.missionPopup.hide();
         }
-        // Force cleanup before restart
         this.forceCleanup();
-        if (this.game && this.game.restartGame) {
-          this.game.restartGame();
-        } else {
-          // Fallback: reload current level
-          window.location.reload();
+        if (this.game && typeof this.game.showMainMenu === 'function') {
+          this.game.showMainMenu();
         }
       }
     });

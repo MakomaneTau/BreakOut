@@ -4,7 +4,6 @@ import { Vector3 } from '../../public/libs/three137/three.module.js';
 import { Prison } from './prison.js';
 import { Eve } from './Eve.js';
 import { stairs } from './stairs.js';
-import { concrete_blocks } from './course/concrete_blocks.js';
 import { Structure } from './structure.js';
 import { ocean } from './location/ocean.js';
 import { wild_island } from './location/wild_island.js';
