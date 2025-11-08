@@ -46,10 +46,12 @@ class platform {
 	}
 
 	load() {
+		console.log(`🏁 Level 2 Platform: Starting load()...`);
 		const loader = new GLTFLoader().setPath(`${this.assetsPath}models/platform/`);
 		loader.load(
 			'scene.gltf',
 			gltf => {
+				console.log(`🏁 Level 2 Platform: Model loaded, setting up...`);
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
 				gltf.scene.scale.set(0.05, 1, 0.2); // Adjust scale as needed
 				gltf.scene.position.set(-72.3, 4, 0); // Adjust position as needed
@@ -82,10 +84,14 @@ class platform {
 				this.scene.add(gltf.scene);
 				this.model = gltf.scene;
 				this.ready = true;
+				console.log(`🏁 Level 2 Platform: Model ready, checking level...`);
 				
 				// Only create helicopter and finish line if NOT level 3 (level 3 uses platform_three's finish line)
-				const currentLevel = this.game?.level || 1;
+				// Try to get level from world if game.level is not set
+				const currentLevel = this.game?.level || this.game?.world?.level || 1;
+				console.log(`🏁 Level 2 Platform: currentLevel = ${currentLevel}, game.level = ${this.game?.level}, world.level = ${this.game?.world?.level}`);
 				if (currentLevel !== 3) {
+					console.log(`🏁 Level 2 Platform: Creating helicopter and finish line (currentLevel = ${currentLevel})`);
 					// Calculate platform dimensions and place helicopter and finish line at the end
 					this.positionHelicopterAtEnd();
 					this.positionFinishLineAtEnd();
@@ -140,7 +146,10 @@ class platform {
 	}
 
 	positionFinishLineAtEnd() {
-		if (!this.model) return;
+		if (!this.model) {
+			console.log(`⚠️ Level 2: Cannot create finish line - platform model not ready`);
+			return;
+		}
 		
 		// Calculate bounding box of the platform to get actual dimensions
 		const box = new THREE.Box3().setFromObject(this.model);
@@ -158,6 +167,7 @@ class platform {
 		
 		// Only create finish line if it doesn't exist yet
 		if (!this.finishLine) {
+			console.log(`🏁 Level 2: Creating finish line at X: ${platformEndX.toFixed(2)}`);
 			// Position finish line on the platform surface (y=4.05 is slightly above platform surface)
 			// width = span across platform (Z), depth = thickness along platform (X)
 			this.finishLine = new finish_line(this.game, {
@@ -166,7 +176,9 @@ class platform {
 				height: 0.1,
 				depth: 2  // thickness along platform (X axis)
 			});
-			console.log(`🏁 Level 2: Finish line positioned at end of platform (X: ${platformEndX.toFixed(2)})`);
+			console.log(`🏁 Level 2: Finish line created! Ready: ${this.finishLine.ready}, Model: ${!!this.finishLine.model}, CollisionModel: ${!!this.finishLine.collisionModel}`);
+		} else {
+			console.log(`🏁 Level 2: Finish line already exists`);
 		}
 	}
 

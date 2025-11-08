@@ -868,12 +868,15 @@ class Eve {
    * Find and connect the helicopter for the current level when finish line is reached
    */
   connectHelicopterForFinishLine() {
-    if (!this.game || !this.game.world) {
+    // Try multiple ways to access the world
+    const world = this.game?.world || window.game?.world;
+    
+    if (!world) {
       console.warn('Cannot connect helicopter - world not available');
+      console.warn('this.game:', this.game, 'this.game.world:', this.game?.world, 'window.game:', window.game);
       return;
     }
 
-    const world = this.game.world;
     const level = world.level || this.collisionManager?.level || 1;
     let helicopter = null;
 
@@ -892,9 +895,16 @@ class Eve {
     // Connect helicopter to character
     if (helicopter && helicopter.ready) {
       this.setHelicopter(helicopter);
+      // Also update WinAnimation's helicopter reference
+      if (this.winAnimation) {
+        this.winAnimation.helicopter = helicopter;
+      }
       console.log('✅ Helicopter connected - player will hold on and fly away!');
     } else {
-      console.warn('⚠️ Helicopter not found or not ready for finish line');
+      console.warn(`⚠️ Helicopter not found or not ready for finish line (level ${level})`);
+      console.warn('Level 1 helicopter:', world.structure?.platform?.helicopter);
+      console.warn('Level 2 helicopter:', world.platform_two?.helicopter);
+      console.warn('Level 3 helicopter:', world.platform_three?.helicopter);
     }
   }
 }

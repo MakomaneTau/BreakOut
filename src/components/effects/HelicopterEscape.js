@@ -48,6 +48,13 @@ export class HelicopterEscape {
   trigger() {
     if (this.isActive) return;
     
+    // Check if helicopter is available
+    if (!this.helicopter || !this.helicopter.model) {
+      console.error('❌ Cannot start helicopter escape - helicopter not available!');
+      console.error('Helicopter:', this.helicopter);
+      return;
+    }
+    
     console.log('🚁 HELICOPTER ESCAPE SEQUENCE STARTED! 🚁');
     console.log('Character position:', this.character?.model?.position);
     console.log('Helicopter position:', this.helicopter?.model?.position);
@@ -73,6 +80,13 @@ export class HelicopterEscape {
     
     // Set up animation targets
     this.setupAnimationTargets();
+    
+    // Verify setup was successful
+    if (!this.jumpCurve || this.jumpCurve.points.length === 0) {
+      console.error('❌ Failed to setup animation targets - aborting escape sequence');
+      this.isActive = false;
+      return;
+    }
     
     // Disable character controls
     this.disableCharacterControls();
@@ -272,6 +286,12 @@ export class HelicopterEscape {
    * Jump phase - character jumps onto helicopter
    */
   updateJumpPhase(delta) {
+    if (!this.helicopter || !this.helicopter.model || !this.jumpCurve || this.jumpCurve.points.length === 0) {
+      console.error('❌ Cannot update jump phase - helicopter or jump curve missing');
+      this.phase = 'complete';
+      return;
+    }
+    
     const duration = 1.5; // 1.5 seconds for jump
     const progress = Math.min(this.phaseTimer / duration, 1);
     

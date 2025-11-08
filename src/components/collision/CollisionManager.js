@@ -344,6 +344,9 @@ export class CollisionManager {
       this.expectedObstacleCount = this._calculateExpectedObstacles(platforms);
       console.log(`📊 Expected obstacles: ${this.expectedObstacleCount}`);
     } else if (this.registrationComplete) {
+      // Even after registration is complete, continue trying to register finish lines
+      // as they may not be ready yet when obstacles finish registering
+      this._registerFinishLinesOnly(platforms);
       return;
     } else {
       console.log(`🔁 Continuing obstacle registration for level ${this.level}...`);
@@ -358,6 +361,7 @@ export class CollisionManager {
     // Register Level 2 obstacles if level >= 2
     if (this.level >= 2 && platforms.platform_two) {
       console.log('📍 Registering Level 2 obstacles...');
+      console.log(`📍 Level 2: platform_two exists: ${!!platforms.platform_two}, finishLine exists: ${!!platforms.platform_two.finishLine}, finishLine ready: ${platforms.platform_two.finishLine?.ready}`);
       this.registerPlatformObstacles(platforms.platform_two, 'Level 2');
       
       // Register initial flying cubes from spawner
@@ -381,9 +385,92 @@ export class CollisionManager {
         this.registerDynamicLasers(platforms.platform_three.laserBarrierSpawner);
       }
     }
+    
+    // Also try to register finish lines even if registration is not complete yet
+    // (in case they become ready while other obstacles are still loading)
+    this._registerFinishLinesOnly(platforms);
 
     console.log(`📈 Total colliders registered so far: ${this.colliders.length}`);
     console.log(`📊 Progress: ${this.registeredObstacleCount}/${this.expectedObstacleCount}`);
+    
+    // Debug: List all finish line colliders
+    const finishLineColliders = this.colliders.filter(c => 
+      c.mesh && c.mesh.userData && c.mesh.userData.type === 'finish_line'
+    );
+    if (finishLineColliders.length > 0) {
+      console.log(`🏁 Found ${finishLineColliders.length} finish line collider(s) registered:`);
+      finishLineColliders.forEach((collider, idx) => {
+        const pos = collider.mesh.position;
+        console.log(`  ${idx + 1}. Position: (${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}), Name: ${collider.mesh.name}`);
+      });
+    } else {
+      console.log(`⚠️ No finish line colliders found in collision system!`);
+    }
+  }
+
+  /**
+   * Register finish lines only (used after obstacle registration completes)
+   * This ensures finish lines are registered even if they weren't ready during initial registration
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four
+   */
+  _registerFinishLinesOnly(platforms) {
+    if (!platforms) return;
+
+    // Register Level 1 finish line (structure.platform)
+    if (platforms.structure && platforms.structure.platform && platforms.structure.platform.finishLine) {
+      const finishLine = platforms.structure.platform.finishLine;
+      if (finishLine.ready) {
+        const meshToRegister = finishLine.collisionModel || finishLine.model;
+        if (meshToRegister && !this.hasCollider(meshToRegister)) {
+          const collider = this.add(meshToRegister, 'box');
+          if (collider) {
+            console.log(`🏁 Registered Level 1 finish line collider`);
+          }
+        }
+      }
+    }
+
+    // Register Level 2 finish line (platform_two)
+    if (this.level >= 2) {
+      if (!platforms.platform_two) {
+        console.log(`⚠️ Level ${this.level}: platform_two is null`);
+      } else if (!platforms.platform_two.finishLine) {
+        console.log(`⚠️ Level ${this.level}: platform_two.finishLine is null`);
+      } else {
+        const finishLine = platforms.platform_two.finishLine;
+        if (!finishLine.ready) {
+          console.log(`⏳ Level ${this.level}: platform_two finish line not ready yet`);
+        } else {
+          const meshToRegister = finishLine.collisionModel || finishLine.model;
+          if (!meshToRegister) {
+            console.log(`⚠️ Level ${this.level}: platform_two finish line has no mesh`);
+          } else if (this.hasCollider(meshToRegister)) {
+            // Already registered, no need to log every time
+          } else {
+            const collider = this.add(meshToRegister, 'box');
+            if (collider) {
+              console.log(`🏁 Registered Level 2 finish line collider`);
+            } else {
+              console.log(`⚠️ Level ${this.level}: Failed to create collider for platform_two finish line`);
+            }
+          }
+        }
+      }
+    }
+
+    // Register Level 3 finish line (platform_three)
+    if (this.level >= 3 && platforms.platform_three && platforms.platform_three.finishLine) {
+      const finishLine = platforms.platform_three.finishLine;
+      if (finishLine.ready) {
+        const meshToRegister = finishLine.collisionModel || finishLine.model;
+        if (meshToRegister && !this.hasCollider(meshToRegister)) {
+          const collider = this.add(meshToRegister, 'box');
+          if (collider) {
+            console.log(`🏁 Registered Level 3 finish line collider`);
+          }
+        }
+      }
+    }
   }
 
   /**

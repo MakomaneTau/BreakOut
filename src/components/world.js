@@ -130,6 +130,9 @@ class World {
         let attempts = 0;
         const maxAttempts = 50; // ~25 seconds max
         const pollInterval = 500; // Check every 500ms
+        let registrationComplete = false;
+        let finishLineAttempts = 0;
+        const maxFinishLineAttempts = 20; // Continue trying finish lines for up to 10 seconds after obstacle registration
         
         this._obstacleRegistrationInterval = setInterval(() => {
             attempts++;
@@ -150,10 +153,39 @@ class World {
             
             // Check if registration is complete
             if (this.collisionManager && this.collisionManager.isRegistrationComplete()) {
-                this.obstaclesReady = true;
-                clearInterval(this._obstacleRegistrationInterval);
-                this._obstacleRegistrationInterval = null;
-                console.log(`✅ World: All obstacles registered and ready! Total colliders: ${this.collisionManager.getColliderCount()}`);
+                if (!registrationComplete) {
+                    registrationComplete = true;
+                    this.obstaclesReady = true;
+                    console.log(`✅ World: All obstacles registered and ready! Total colliders: ${this.collisionManager.getColliderCount()}`);
+                    
+                    // Debug: Check finish lines immediately after registration completes
+                    const finishLineColliders = this.collisionManager.colliders.filter(c => 
+                        c.mesh && c.mesh.userData && c.mesh.userData.type === 'finish_line'
+                    );
+                    console.log(`🏁 World: After obstacle registration, found ${finishLineColliders.length} finish line collider(s)`);
+                }
+                
+                // Continue trying to register finish lines even after obstacle registration completes
+                // (they may not be ready yet when obstacles finish registering)
+                if (finishLineAttempts < maxFinishLineAttempts) {
+                    finishLineAttempts++;
+                    if (this.collisionManager._registerFinishLinesOnly) {
+                        this.collisionManager._registerFinishLinesOnly(platforms);
+                    }
+                } else {
+                    // Stop after max finish line attempts
+                    clearInterval(this._obstacleRegistrationInterval);
+                    this._obstacleRegistrationInterval = null;
+                    
+                    // Final check for finish lines
+                    const finishLineColliders = this.collisionManager.colliders.filter(c => 
+                        c.mesh && c.mesh.userData && c.mesh.userData.type === 'finish_line'
+                    );
+                    console.log(`✅ World: Finished attempting finish line registration. Final count: ${finishLineColliders.length} finish line collider(s)`);
+                    if (finishLineColliders.length === 0) {
+                        console.warn(`⚠️ World: No finish line colliders found! Check if finish lines are being created.`);
+                    }
+                }
             } else if (this.collisionManager && this.collisionManager.registrationStarted) {
                 // Log progress
                 const status = this.collisionManager.getRegistrationStatus();
