@@ -76,10 +76,13 @@ class concrete_blocks {
 				if (this.shaderMaterial) {
 					node.material = this.shaderMaterial;
 				}
+				// Set obstacle type on child meshes as well for reliable collision detection
+				if (!node.userData) node.userData = {};
+				node.userData.type = 'concrete_block';
 			}
 		});
 
-		// Set obstacle type for collision detection
+		// Set obstacle type for collision detection on root object
 		clone.userData.type = 'concrete_block';
 
 		this.scene.add(clone);

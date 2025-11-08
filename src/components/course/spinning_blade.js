@@ -56,10 +56,13 @@ class spinning_blade {
 						if (this.shaderMaterial) {
 							node.material = this.shaderMaterial;
 						}
+						// Set obstacle type on child meshes as well for reliable collision detection
+						if (!node.userData) node.userData = {};
+						node.userData.type = 'spinning_blade';
 					}
 				});
 
-				// Set obstacle type for collision detection
+				// Set obstacle type for collision detection on root object
 				obj.userData.type = 'spinning_blade';
 
 				this.scene.add(obj);

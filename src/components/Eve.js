@@ -570,7 +570,13 @@ class Eve {
     if (!this.health || !this.health.isAlive) return;
 
     const mesh = collision.mesh;
-    const obstacleType = mesh.userData?.type || this.getObstacleTypeFromName(mesh.name);
+    // Get type from mesh or traverse up parent hierarchy to find it
+    const obstacleType = this.getObstacleTypeFromHierarchy(mesh) || this.getObstacleTypeFromName(mesh.name);
+    
+    // Debug logging
+    if (!obstacleType || obstacleType === 'unknown') {
+      console.warn(`⚠️ Collision detected but obstacle type unknown. Mesh name: ${mesh.name}, userData:`, mesh.userData);
+    }
 
     let damage = HealthConfig.OBSTACLE_DAMAGE;
     let damageType = DamageType.OBSTACLE;
@@ -608,6 +614,21 @@ class Eve {
     }
 
     this.takeDamage(damage, damageType);
+  }
+
+  /**
+   * Get obstacle type by traversing up the parent hierarchy
+   * This is needed because userData.type might be on the parent Group, not the child mesh
+   */
+  getObstacleTypeFromHierarchy(obj) {
+    let current = obj;
+    while (current) {
+      if (current.userData && current.userData.type) {
+        return current.userData.type;
+      }
+      current = current.parent;
+    }
+    return null;
   }
 
   getObstacleTypeFromName(name) {

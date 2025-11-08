@@ -42,10 +42,13 @@ class laser_barrier {
 						node.castShadow = true;
 						node.receiveShadow = true;
 						if (node.material) node.material.needsUpdate = true;
+						// Set obstacle type on child meshes as well for reliable collision detection
+						if (!node.userData) node.userData = {};
+						node.userData.type = 'laser';
 					}
 				});
 
-				// Set obstacle type for collision detection
+				// Set obstacle type for collision detection on root object
 				obj.userData.type = 'laser';
 
 				this.scene.add(obj);
