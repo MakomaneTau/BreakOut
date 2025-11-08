@@ -368,11 +368,19 @@ export class WinAnimation {
       timeFormatted = this.game.timerUI.getFormattedTime();
     }
     
+    // Get health stats
+    const health = this.character?.health?.currentHealth ?? 100;
+    const maxHealth = this.character?.health?.maxHealth ?? 100;
+    
+    // Get damage statistics from health system
+    const totalDamageTaken = this.character?.health?.stats?.totalDamageTaken ?? 0;
+    
+    // Show popup with real stats
     this.missionPopup.show({
-      health: this.character?.health?.currentHealth || 100,
-      maxHealth: this.character?.health?.maxHealth || 100,
-      lives: this.character?.health?.currentLives || 3,
-      time: timeFormatted
+      health: health,
+      maxHealth: maxHealth,
+      time: timeFormatted,
+      totalDamageTaken: totalDamageTaken
     });
   }
 

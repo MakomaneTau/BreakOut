@@ -86,6 +86,7 @@ export class MissionPopup {
 
     // Stats container
     const statsContainer = document.createElement('div');
+    statsContainer.id = 'mission-stats-container';
     statsContainer.style.cssText = `
       display: flex;
       justify-content: space-around;
@@ -94,14 +95,15 @@ export class MissionPopup {
       gap: 20px;
     `;
 
-    // Health stat
-    const healthStat = this.createStat('Health', '100%', '#00ff88');
-    const timeStat = this.createStat('Time', '03:45', '#ffd700');
-    const livesStat = this.createStat('Lives', '3', '#ff6b6b');
+    // Create stat elements with placeholders (will be updated with real data)
+    // Store references for easy updates
+    this.healthStat = this.createStat('Health', '--', '#00ff88');
+    this.timeStat = this.createStat('Time', '--', '#ffd700');
+    this.damageStat = this.createStat('Damage Taken', '--', '#ff6b6b');
 
-    statsContainer.appendChild(healthStat);
-    statsContainer.appendChild(timeStat);
-    statsContainer.appendChild(livesStat);
+    statsContainer.appendChild(this.healthStat);
+    statsContainer.appendChild(this.timeStat);
+    statsContainer.appendChild(this.damageStat);
 
     // Buttons container
     const buttonsContainer = document.createElement('div');
@@ -194,7 +196,7 @@ export class MissionPopup {
    * @param {string} label - Stat label
    * @param {string} value - Stat value
    * @param {string} color - Color for the value
-   * @returns {HTMLElement}
+   * @returns {HTMLElement} - Returns the stat div with valueEl as a property for easy updates
    */
   createStat(label, value, color) {
     const statDiv = document.createElement('div');
@@ -224,6 +226,10 @@ export class MissionPopup {
 
     statDiv.appendChild(labelEl);
     statDiv.appendChild(valueEl);
+    
+    // Store reference to value element for easy updates
+    statDiv.valueElement = valueEl;
+    
     return statDiv;
   }
 
@@ -295,36 +301,29 @@ export class MissionPopup {
   updateStats(stats) {
     if (!this.popupContent) return;
     
-    // Find stat elements and update them
-    const statsContainer = this.popupContent.querySelector('div[style*="justify-content: space-around"]');
-    if (!statsContainer) return;
-    
-    const statDivs = statsContainer.querySelectorAll('div[style*="text-align: center"]');
-    
     // Update health stat
-    if (statDivs[0] && stats.health !== undefined) {
-      const healthPercent = stats.maxHealth > 0 
-        ? Math.round((stats.health / stats.maxHealth) * 100) 
-        : 0;
-      const valueEl = statDivs[0].querySelector('div[style*="font-size: 1.5em"]');
-      if (valueEl) {
-        valueEl.textContent = `${healthPercent}%`;
+    if (this.healthStat && this.healthStat.valueElement) {
+      if (stats.health !== undefined && stats.maxHealth !== undefined) {
+        const healthPercent = stats.maxHealth > 0 
+          ? Math.round((stats.health / stats.maxHealth) * 100) 
+          : 100;
+        this.healthStat.valueElement.textContent = `${healthPercent}%`;
+      } else {
+        this.healthStat.valueElement.textContent = '100%';
       }
     }
     
     // Update time stat
-    if (statDivs[1] && stats.time) {
-      const valueEl = statDivs[1].querySelector('div[style*="font-size: 1.5em"]');
-      if (valueEl) {
-        valueEl.textContent = stats.time;
-      }
+    if (this.timeStat && this.timeStat.valueElement) {
+      this.timeStat.valueElement.textContent = stats.time || '00:00';
     }
     
-    // Update lives stat (if shown)
-    if (statDivs[2] && stats.lives !== undefined) {
-      const valueEl = statDivs[2].querySelector('div[style*="font-size: 1.5em"]');
-      if (valueEl) {
-        valueEl.textContent = stats.lives;
+    // Update damage taken stat
+    if (this.damageStat && this.damageStat.valueElement) {
+      if (stats.totalDamageTaken !== undefined) {
+        this.damageStat.valueElement.textContent = Math.ceil(stats.totalDamageTaken).toString();
+      } else {
+        this.damageStat.valueElement.textContent = '0';
       }
     }
   }

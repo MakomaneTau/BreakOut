@@ -14,8 +14,8 @@ export const HealthConfig = {
   PERMADEATH_LIVES: 1,
   
   // Damage values
-  OBSTACLE_DAMAGE: 20,
-  TRAP_DAMAGE: 30,
+  OBSTACLE_DAMAGE: 10,
+  TRAP_DAMAGE: 10,
   ENEMY_DAMAGE: 15,
   FALL_DAMAGE: 50,
   
