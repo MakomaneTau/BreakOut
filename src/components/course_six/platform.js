@@ -2,7 +2,6 @@ import * as THREE from '../../../public/libs/three137/three.module.js';
 import { GLTFLoader } from '../../../public/libs/three137/GLTFLoader.js';
 import { laser_barrier, LaserBarrierSpawner } from './laser_barrier.js';
 import { FlyingCubesSpawner } from './flying_cubes.js'; // Handles repeated spawning of moving cubes
-import { concrete_blocks } from './concrete_blocks.js';
 import { createPlatformMaterial } from '../../shaders/platformShader.js';
 import { Helicopter } from '../helicopter.js';
 import { finish_line } from '../course/finish_line.js';
@@ -19,19 +18,7 @@ class platform {
 		this.finishLine = null; // Finish line (will be created after platform loads)
 		this.game = game; // Store game reference for helicopter creation
 
-		this.concreteBlocks = [
-			new concrete_blocks(game, { position: [-170, 4.6, -7], scale: [6.5, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-160, 4.6, 3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-150, 4.6, -1], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-139, 4.6, 3.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-130, 4.6, 5.5], scale: [9, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-120, 4.6, -4.9], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-110, 4.6, 0], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-100, 4.6, -3], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-115, 4.6, 4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-103, 4.6, 4], scale: [12, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-			new concrete_blocks(game, { position: [-105, 4.6, -4], scale: [3, 1, 0.25], rotationY: Math.PI / 2, name: 'concrete_A' }),
-		];
+		// Concrete blocks removed
 
 		// Flying cubes spawner (deterministic: edit coordinates/scale below)
 		this.flyingCubesSpawner = new FlyingCubesSpawner(this.scene, {
@@ -41,14 +28,14 @@ class platform {
 			debug: false,
 			// Exactly 5 cubes; customize start/end, scale (or size), and speed
 			cubeConfigs: [
-				{ start: [-180, 4.5, -4.5], end: [-95, 5.7, -4.5], scale: [1.2, 1.0, 3.2], speed: 0.05 },
+				{ start: [-180, 14, -4.5], end: [-95, 14, -4.5], scale: [0.2, 20.0, 8], speed: 0.1 },
 				{ start: [-180, 4.5, -1.5], end: [-95, 4.5, -1.5], scale: [1.0, 1.0, 3.0], speed: 0.06 },
 				{ start: [-180, 4.5, 0.0], end: [-95, 4.5, 0.0], scale: [1.5, 1.0, 6], speed: 0.07 },
-				{ start: [-180, 4.5, 1.8], end: [-95, 4.5, 1.8], scale: [0.9, 1.0, 2.4], speed: 0.055 },
-				{ start: [-180, 4.5, 7], end: [-95, 4.5, 7], scale: [1.3, 1.0, 7], speed: 0.06 },
+				{ start: [-180, -5, 1.8], end: [-95, 14, 1.8], scale: [0.9, 20.0, 2.4], speed: 0.055 },
+				{ start: [-180, 4.5, 7], end: [-95, 4.5, 7], scale: [0.2, 1.0, 7], speed: 0.06 },
 				{ start: [-180, 4.5, 4.5], end: [-95, 4.5, 4.5], scale: [1.3, 1.0, 3.3], speed: 0.07 },
 				{ start: [-180, 4.5, -7], end: [-95, 4.5, -7], scale: [1.3, 1.0, 6], speed: 0.08 },
-				{ start: [-180, 4.5, 4.5], end: [-95, 4.5, 4.5], scale: [1.3, 1.0, 6], speed: 0.04 },
+				{ start: [-180, 8, 4.5], end: [-95, 8, 4.5], scale: [0.2, 10.0, 6], speed: 0.04 },
 				{ start: [-180, 4.5, 4.5], end: [-95, 4.5, 4.5], scale: [1.3, 1.0, 3.3], speed: 0.08 },
 				{ start: [-180, 4.5, 4.5], end: [-95, 4.5, 4.5], scale: [1.3, 1.0, 3.3], speed: 0.09 },
 			]
@@ -57,6 +44,7 @@ class platform {
 		// Laser barrier spawner (dynamic moving barriers)
 		this.laserBarrierSpawner = new LaserBarrierSpawner(this.scene, {
 			assetsPath: this.assetsPath,
+			collisionSystem: this.game?.collisionSystem,
 			countMin: 2,
 			countMax: 4,
 			sizeMin: 1,
@@ -83,7 +71,7 @@ class platform {
 			'scene.gltf',
 			gltf => {
 				gltf.scene.rotation.y = Math.PI / 2; // Rotate 180 degrees if needed
-				gltf.scene.scale.set(0.08, 1, 0.9); // Adjust scale as needed
+				gltf.scene.scale.set(0.05, 1, 0.9); // Reduced X scale from 0.08 to 0.05 to shorten platform
 				gltf.scene.position.set(-213.1, 4, 0); // Adjust position as needed
 
 				// Enable shadows on platform meshes and apply shader
@@ -115,26 +103,9 @@ class platform {
 				this.model = gltf.scene;
 				this.ready = true;
 				
-				// Get current level to determine if we should create helicopter/finish line
-				const currentLevel = this.game?.level || this.game?.world?.level || 1;
-				
-				// Only create helicopter and finish line if NOT level 6 (level 6 uses platform_six's finish line)
-				if (currentLevel !== 6) {
-					// Calculate platform dimensions and place helicopter and finish line at the end
-					this.positionHelicopterAtEnd();
-					this.positionFinishLineAtEnd();
-				} else {
-					// Level 6: Clean up any existing helicopter/finish line from platform_three
-					if (this.helicopter && this.helicopter.model) {
-						this.scene.remove(this.helicopter.model);
-						this.helicopter = null;
-					}
-					if (this.finishLine && this.finishLine.model) {
-						this.scene.remove(this.finishLine.model);
-						this.finishLine = null;
-					}
-					console.log('🚫 Level 6: Skipping helicopter and finish line creation for platform_three (using platform_six instead)');
-				}
+				// Calculate platform dimensions and place helicopter and finish line at the end
+				this.positionHelicopterAtEnd();
+				this.positionFinishLineAtEnd();
 			},
 			xhr => this.loadingBar.update('platform', xhr.loaded, xhr.total),
 			err => console.error(err)
@@ -210,7 +181,7 @@ class platform {
 		});
 		if (this.flyingCubesSpawner) this.flyingCubesSpawner.update(delta); // delta already seconds
 		if (this.laserBarrierSpawner) this.laserBarrierSpawner.update(delta);
-		if (this.concreteBlocks) this.concreteBlocks.forEach(cb => cb.update(time, delta));
+	// Concrete blocks removed
 		// Update helicopter animation
 		if (this.helicopter && this.helicopter.ready) {
 			this.helicopter.update(time, delta);

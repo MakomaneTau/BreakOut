@@ -12,6 +12,9 @@ import { wild_island } from './location/wild_island.js';
 import { platform as platform_two } from './course_two/platform.js';
 import { platform as platform_three } from './course_three/platform.js';
 import { platform as platform_four } from './course_four/platform.js';
+import { platform as platform_five } from './course_five/platform.js';
+import { platform as platform_six } from './course_six/platform.js';
+import { platform as platform_seven } from './course_seven/platform.js';
 
 class World {
     loadSkybox() {
@@ -31,7 +34,7 @@ class World {
         this.assetsPath = game.assetsPath;
         this.loadingBar = game.loadingBar;
         this.scene = game.scene;
-        this.level = Math.max(1, Math.min(4, parseInt(opts.level || game.level || 1)));
+        this.level = Math.max(1, Math.min(7, parseInt(opts.level || game.level || 1)));
         this.collisionManager = game.collisionManager || new CollisionManager(this.level);
         this.wallColliders = [];
 
@@ -54,9 +57,16 @@ class World {
         // Optional locations
         // this.ocean = new ocean(game);
         // Conditionally create additional courses based on level
-        this.platform_two = this.level >= 2 && this.level < 4 ? new platform_two(game) : null;
-        this.platform_three = this.level >= 3 && this.level < 4 ? new platform_three(game) : null;
-        this.platform_four = this.level >= 4 ? new platform_four(game) : null;
+        // Levels 1-3: Winning levels
+        this.platform_two = (this.level >= 2 && this.level < 4) || this.level === 6 ? new platform_two(game) : null;
+        this.platform_three = (this.level >= 3 && this.level < 4) || this.level === 6 ? new platform_three(game) : null;
+        // Levels 4-6: Main's levels 1-3
+        this.platform_four = this.level === 4 ? new platform_four(game, { level: this.level }) : null;
+        this.platform_five = this.level === 5 ? new platform_five(game, { level: this.level }) : null;
+        // Level 6 uses Main's level 3 structure: platform_two + platform_three (the extra segment)
+        this.platform_six = this.level === 6 ? new platform_six(game, { level: this.level }) : null;
+        // Level 7: Play Mode (free roaming)
+        this.platform_seven = this.level === 7 ? new platform_seven(game) : null;
         // this.ocean = new ocean(game);
         this.wildIsland = new wild_island(game);
 
@@ -111,8 +121,8 @@ class World {
     }
 
     registerPrisonWalls() {
-        // Play mode (level 4) has no collision system - skip wall registration
-        if (this.level >= 4) {
+        // Play mode (level 7) has no collision system - skip wall registration
+        if (this.level >= 7) {
             console.log(`🎮 Play Mode: Skipping prison wall registration - no collision system`);
             return;
         }
@@ -142,7 +152,10 @@ class World {
                 structure: this.structure,
                 platform_two: this.platform_two,
                 platform_three: this.platform_three,
-                platform_four: this.platform_four
+                platform_four: this.platform_four,
+                platform_five: this.platform_five,
+                platform_six: this.platform_six,
+                platform_seven: this.platform_seven
             };
             
             // Try to register obstacles until registration completes
@@ -214,16 +227,26 @@ class World {
         // Update all world components
         if (this.structure) this.structure.update(time, delta);
         if (this.wildIsland) this.wildIsland.update(time, delta);
-        if (this.level >= 2 && this.level < 4 && this.platform_two) this.platform_two.update(time, delta);
-        if (this.level >= 3 && this.level < 4 && this.platform_three) this.platform_three.update(time, delta);
-        if (this.level >= 4 && this.platform_four) this.platform_four.update(time, delta);
+        // Update platform_two for levels 2, 3, and 6 (Main's level 3 uses both platform_two and platform_three)
+        if (((this.level >= 2 && this.level < 4) || this.level === 6) && this.platform_two) this.platform_two.update(time, delta);
+        // Update platform_three for levels 3 and 6 (Main's level 3 uses both platform_two and platform_three)
+        if (((this.level >= 3 && this.level < 4) || this.level === 6) && this.platform_three) this.platform_three.update(time, delta);
+        if (this.level === 4 && this.platform_four) this.platform_four.update(time, delta);
+        if (this.level === 5 && this.platform_five) this.platform_five.update(time, delta);
+        // Level 6 also needs platform_six (the extra segment)
+        if (this.level === 6 && this.platform_six) this.platform_six.update(time, delta);
+        if (this.level === 7 && this.platform_seven) this.platform_seven.update(time, delta);
 
-        // Sync dynamic obstacles every frame (flying cubes, spawned lasers) - skip for play mode
-        if (this.collisionManager && this.collisionManager.syncDynamicObstacles && this.level < 4) {
+        // Sync dynamic obstacles every frame (flying cubes, spawned lasers) - skip for play mode (level 7)
+        // Level 6 uses platform_two, platform_three, and platform_six
+        if (this.collisionManager && this.collisionManager.syncDynamicObstacles && this.level < 7) {
             this.collisionManager.syncDynamicObstacles({
                 structure: this.structure,
                 platform_two: this.platform_two,
-                platform_three: this.platform_three
+                platform_three: this.platform_three,
+                platform_four: this.platform_four,
+                platform_five: this.platform_five,
+                platform_six: this.platform_six
             });
         }
 

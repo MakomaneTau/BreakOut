@@ -411,8 +411,8 @@ class Eve {
   }
 
   checkCollisionAtPosition(testPosition) {
-    // Play mode (level 4) has no collision system - always allow movement
-    if (this.collisionManager && this.collisionManager.level >= 4) {
+    // Play mode (level 7) has no collision system - always allow movement
+    if (this.collisionManager && this.collisionManager.level >= 7) {
       return false;
     }
     
@@ -977,8 +977,8 @@ class Eve {
   }
 
   checkDamageCollisions() {
-    // Play mode (level 4) has no collision system - skip collision checks
-    if (this.collisionManager && this.collisionManager.level >= 4) {
+    // Play mode (level 7) has no collision system - skip collision checks
+    if (this.collisionManager && this.collisionManager.level >= 7) {
       return;
     }
     
@@ -1051,6 +1051,22 @@ class Eve {
     } else if (level === 3 && world.platform_three?.helicopter) {
       helicopter = world.platform_three.helicopter;
       console.log('🚁 Level 3: Found helicopter at finish line');
+    } else if (level === 4 && world.platform_four?.helicopter) {
+      helicopter = world.platform_four.helicopter;
+      console.log('🚁 Level 4: Found helicopter at finish line');
+    } else if (level === 5 && world.platform_five?.helicopter) {
+      helicopter = world.platform_five.helicopter;
+      console.log('🚁 Level 5: Found helicopter at finish line');
+    } else if (level === 6) {
+      // Level 6 uses platform_six (main) and platform_three (Main's level 3 structure)
+      // Check platform_six first, then platform_three as fallback
+      if (world.platform_six?.helicopter) {
+        helicopter = world.platform_six.helicopter;
+        console.log('🚁 Level 6: Found helicopter at finish line (platform_six)');
+      } else if (world.platform_three?.helicopter) {
+        helicopter = world.platform_three.helicopter;
+        console.log('🚁 Level 6: Found helicopter at finish line (platform_three)');
+      }
     }
 
     // Connect helicopter to character
@@ -1066,6 +1082,9 @@ class Eve {
       console.warn('Level 1 helicopter:', world.structure?.platform?.helicopter);
       console.warn('Level 2 helicopter:', world.platform_two?.helicopter);
       console.warn('Level 3 helicopter:', world.platform_three?.helicopter);
+      console.warn('Level 4 helicopter:', world.platform_four?.helicopter);
+      console.warn('Level 5 helicopter:', world.platform_five?.helicopter);
+      console.warn('Level 6 helicopter:', world.platform_six?.helicopter);
     }
   }
 }

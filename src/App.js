@@ -56,7 +56,7 @@ class App {
         });
     }
     constructor(opts = {}) {
-        this.level = Math.max(1, Math.min(4, parseInt(opts.level) || 1));
+        this.level = Math.max(1, Math.min(7, parseInt(opts.level) || 1));
 
         this.collisionManager = new CollisionManager(this.level);
 
@@ -75,10 +75,10 @@ class App {
             }
         });
 
-        // Initialize Timer UI (skip for play mode)
+        // Initialize Timer UI (skip for play mode - level 7)
         const initialTime = LEVEL_START_TIMES[this.level] ?? LEVEL_START_TIMES[1];
         
-        if (initialTime !== null && this.level < 4) {
+        if (initialTime !== null && this.level < 7) {
             this.timerUI = new TimerUI({
                 initialTime,
                 onTimeUp: () => {

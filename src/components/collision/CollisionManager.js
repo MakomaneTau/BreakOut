@@ -49,8 +49,8 @@ export class CollisionManager {
 
   // Check if a collider intersects any other collider
   findCollisionFor(collider) {
-    // Play mode (level 4) has no collision system
-    if (this.level >= 4) return null;
+    // Play mode (level 7) has no collision system
+    if (this.level >= 7) return null;
     
     for (const other of this.colliders) {
       if (other === collider) continue; // skip self
@@ -63,8 +63,8 @@ export class CollisionManager {
 
   // Register all wall meshes from a model as colliders
   registerWallsFromModel(model) {
-    // Play mode (level 4) has no collision system - don't register walls
-    if (this.level >= 4) {
+    // Play mode (level 7) has no collision system - don't register walls
+    if (this.level >= 7) {
       console.log(`🎮 Play Mode: Skipping wall registration - no collision system`);
       return [];
     }
@@ -262,8 +262,8 @@ export class CollisionManager {
    * Check collision and apply damage if player hits an obstacle
    */
   checkPlayerCollisions(playerCollider, player) {
-    // Play mode (level 4) has no collision system
-    if (this.level >= 4) return null;
+    // Play mode (level 7) has no collision system
+    if (this.level >= 7) return null;
     
     if (!playerCollider || !player) return null;
 
@@ -294,11 +294,11 @@ export class CollisionManager {
 
   /**
    * Calculate expected obstacle count based on level
-   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four, platform_five, platform_six, platform_seven
    */
   _calculateExpectedObstacles(platforms) {
-    // Play mode (level 4) has no obstacles
-    if (this.level >= 4) {
+    // Play mode (level 7) has no obstacles
+    if (this.level >= 7) {
       return 0;
     }
     
@@ -307,8 +307,8 @@ export class CollisionManager {
     // Level 1 obstacles - only count if level is 1, or if Level 1 platform has ready obstacles
     if (this.level === 1 && platforms.structure && platforms.structure.platform) {
       expected += this.getExpectedObstacleCount(platforms.structure.platform);
-    } else if (this.level > 1 && platforms.structure && platforms.structure.platform) {
-      // On higher levels, only count Level 1 obstacles if they're actually ready
+    } else if (this.level > 1 && this.level < 4 && platforms.structure && platforms.structure.platform) {
+      // On higher levels (2-3), only count Level 1 obstacles if they're actually ready
       const level1Platform = platforms.structure.platform;
       const hasReadyObstacles = (level1Platform.concreteBlocks && level1Platform.concreteBlocks.some(b => b.ready)) ||
                                 (level1Platform.spinningBlades && level1Platform.spinningBlades.some(b => b.ready)) ||
@@ -318,14 +318,35 @@ export class CollisionManager {
       }
     }
     
-    // Level 2 obstacles
-    if (this.level >= 2 && platforms.platform_two) {
-      expected += this.getExpectedObstacleCount(platforms.platform_two);
+    // Level 2 obstacles (also used in level 6)
+    if ((this.level >= 2 && this.level < 4) || this.level === 6) {
+      if (platforms.platform_two) {
+        expected += this.getExpectedObstacleCount(platforms.platform_two);
+      }
     }
     
-    // Level 3 obstacles
-    if (this.level >= 3 && platforms.platform_three) {
-      expected += this.getExpectedObstacleCount(platforms.platform_three);
+    // Level 3 obstacles (also used in level 6)
+    if ((this.level >= 3 && this.level < 4) || this.level === 6) {
+      if (platforms.platform_three) {
+        expected += this.getExpectedObstacleCount(platforms.platform_three);
+      }
+    }
+    
+    // Level 4 obstacles (Main's level 1)
+    if (this.level === 4 && platforms.platform_four) {
+      expected += this.getExpectedObstacleCount(platforms.platform_four);
+    }
+    
+    // Level 5 obstacles (Main's level 2)
+    if (this.level === 5 && platforms.platform_five) {
+      expected += this.getExpectedObstacleCount(platforms.platform_five);
+    }
+    
+    // Level 6 obstacles (Main's level 3) - uses platform_six, platform_two, and platform_three
+    if (this.level === 6) {
+      if (platforms.platform_six) {
+        expected += this.getExpectedObstacleCount(platforms.platform_six);
+      }
     }
     
     return expected;
@@ -343,19 +364,19 @@ export class CollisionManager {
 
   /**
    * Register obstacles for the current level
-   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four, platform_five, platform_six, platform_seven
    */
   registerObstaclesForLevel(platforms) {
     if (!platforms) return;
 
-    // Play mode (level 4) has no obstacles - mark as complete immediately
-    if (this.level >= 4) {
+    // Play mode (level 7) has no obstacles - mark as complete immediately
+    if (this.level >= 7) {
       if (!this.registrationStarted) {
         this.registrationStarted = true;
         this.expectedObstacleCount = 0;
         this.registeredObstacleCount = 0;
         this.registrationComplete = true;
-        console.log(`🎮 Play Mode (Level 4): No obstacles - free exploration!`);
+        console.log(`🎮 Play Mode (Level 7): No obstacles - free exploration!`);
       }
       return;
     }
@@ -396,31 +417,92 @@ export class CollisionManager {
       }
     }
 
-    // Register Level 2 obstacles if level >= 2
-    if (this.level >= 2 && platforms.platform_two) {
-      console.log('📍 Registering Level 2 obstacles...');
-      console.log(`📍 Level 2: platform_two exists: ${!!platforms.platform_two}, finishLine exists: ${!!platforms.platform_two.finishLine}, finishLine ready: ${platforms.platform_two.finishLine?.ready}`);
-      this.registerPlatformObstacles(platforms.platform_two, 'Level 2');
-      
-      // Register initial flying cubes from spawner
-      if (platforms.platform_two.flyingCubesSpawner) {
-        this.registerFlyingCubes(platforms.platform_two.flyingCubesSpawner);
+    // Register Level 2 obstacles if level >= 2 (also used in level 6)
+    if ((this.level >= 2 && this.level < 4) || this.level === 6) {
+      if (platforms.platform_two) {
+        console.log('📍 Registering Level 2 obstacles...');
+        console.log(`📍 Level 2: platform_two exists: ${!!platforms.platform_two}, finishLine exists: ${!!platforms.platform_two.finishLine}, finishLine ready: ${platforms.platform_two.finishLine?.ready}`);
+        this.registerPlatformObstacles(platforms.platform_two, 'Level 2');
+        
+        // Register initial flying cubes from spawner
+        if (platforms.platform_two.flyingCubesSpawner) {
+          this.registerFlyingCubes(platforms.platform_two.flyingCubesSpawner);
+        }
       }
     }
 
-    // Register Level 3 obstacles if level >= 3
-    if (this.level >= 3 && platforms.platform_three) {
-      console.log('📍 Registering Level 3 obstacles...');
-      this.registerPlatformObstacles(platforms.platform_three, 'Level 3');
+    // Register Level 3 obstacles if level >= 3 (also used in level 6)
+    if ((this.level >= 3 && this.level < 4) || this.level === 6) {
+      if (platforms.platform_three) {
+        console.log('📍 Registering Level 3 obstacles...');
+        this.registerPlatformObstacles(platforms.platform_three, 'Level 3');
+        
+        // Register initial flying cubes from spawner
+        if (platforms.platform_three.flyingCubesSpawner) {
+          this.registerFlyingCubes(platforms.platform_three.flyingCubesSpawner);
+        }
+        
+        // Register initial laser barriers from spawner
+        if (platforms.platform_three.laserBarrierSpawner) {
+          this.registerDynamicLasers(platforms.platform_three.laserBarrierSpawner);
+        }
+      }
+    }
+    
+    // Register Level 4 obstacles (Main's level 1)
+    if (this.level === 4 && platforms.platform_four) {
+      console.log('📍 Registering Level 4 obstacles...');
+      this.registerPlatformObstacles(platforms.platform_four, 'Level 4');
       
       // Register initial flying cubes from spawner
-      if (platforms.platform_three.flyingCubesSpawner) {
-        this.registerFlyingCubes(platforms.platform_three.flyingCubesSpawner);
+      if (platforms.platform_four.flyingCubesSpawner) {
+        this.registerFlyingCubes(platforms.platform_four.flyingCubesSpawner);
       }
       
-      // Register initial laser barriers from spawner
-      if (platforms.platform_three.laserBarrierSpawner) {
-        this.registerDynamicLasers(platforms.platform_three.laserBarrierSpawner);
+      // Register laser cubes if they exist
+      if (platforms.platform_four.laserCubes) {
+        platforms.platform_four.laserCubes.forEach(cube => {
+          if (cube && !this.hasCollider(cube)) {
+            if (!cube.userData.type) cube.userData.type = 'laser';
+            this.add(cube, 'box');
+          }
+        });
+      }
+    }
+    
+    // Register Level 5 obstacles (Main's level 2)
+    if (this.level === 5 && platforms.platform_five) {
+      console.log('📍 Registering Level 5 obstacles...');
+      this.registerPlatformObstacles(platforms.platform_five, 'Level 5');
+      
+      // Register initial flying cubes from spawner
+      if (platforms.platform_five.flyingCubesSpawner) {
+        this.registerFlyingCubes(platforms.platform_five.flyingCubesSpawner);
+      }
+    }
+    
+    // Register Level 6 obstacles (Main's level 3) - uses platform_six, platform_two, and platform_three
+    if (this.level === 6) {
+      // Register platform_six obstacles
+      if (platforms.platform_six) {
+        console.log('📍 Registering Level 6 obstacles (platform_six)...');
+        this.registerPlatformObstacles(platforms.platform_six, 'Level 6');
+        
+        // Register initial flying cubes from spawner
+        if (platforms.platform_six.flyingCubesSpawner) {
+          this.registerFlyingCubes(platforms.platform_six.flyingCubesSpawner);
+        }
+      }
+      
+      // Also register platform_two obstacles (used in level 6)
+      if (platforms.platform_two) {
+        console.log('📍 Registering Level 6 obstacles (platform_two)...');
+        this.registerPlatformObstacles(platforms.platform_two, 'Level 6 (platform_two)');
+        
+        // Register initial flying cubes from spawner
+        if (platforms.platform_two.flyingCubesSpawner) {
+          this.registerFlyingCubes(platforms.platform_two.flyingCubesSpawner);
+        }
       }
     }
     
@@ -449,27 +531,29 @@ export class CollisionManager {
   /**
    * Register finish lines only (used after obstacle registration completes)
    * This ensures finish lines are registered even if they weren't ready during initial registration
-   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four, platform_five, platform_six, platform_seven
    */
   _registerFinishLinesOnly(platforms) {
     if (!platforms) return;
 
-    // Register Level 1 finish line (structure.platform)
-    if (platforms.structure && platforms.structure.platform && platforms.structure.platform.finishLine) {
-      const finishLine = platforms.structure.platform.finishLine;
-      if (finishLine.ready) {
-        const meshToRegister = finishLine.collisionModel || finishLine.model;
-        if (meshToRegister && !this.hasCollider(meshToRegister)) {
-          const collider = this.add(meshToRegister, 'box');
-          if (collider) {
-            console.log(`🏁 Registered Level 1 finish line collider`);
+    // Register Level 1 finish line (structure.platform) - only for levels 1-3
+    if (this.level >= 1 && this.level < 4) {
+      if (platforms.structure && platforms.structure.platform && platforms.structure.platform.finishLine) {
+        const finishLine = platforms.structure.platform.finishLine;
+        if (finishLine.ready) {
+          const meshToRegister = finishLine.collisionModel || finishLine.model;
+          if (meshToRegister && !this.hasCollider(meshToRegister)) {
+            const collider = this.add(meshToRegister, 'box');
+            if (collider) {
+              console.log(`🏁 Registered Level 1 finish line collider`);
+            }
           }
         }
       }
     }
 
-    // Register Level 2 finish line (platform_two)
-    if (this.level >= 2) {
+    // Register Level 2 finish line (platform_two) - for levels 2, 3, and 6
+    if ((this.level >= 2 && this.level < 4) || this.level === 6) {
       if (!platforms.platform_two) {
         console.log(`⚠️ Level ${this.level}: platform_two is null`);
       } else if (!platforms.platform_two.finishLine) {
@@ -496,15 +580,59 @@ export class CollisionManager {
       }
     }
 
-    // Register Level 3 finish line (platform_three)
-    if (this.level >= 3 && platforms.platform_three && platforms.platform_three.finishLine) {
-      const finishLine = platforms.platform_three.finishLine;
+    // Register Level 3 finish line (platform_three) - for levels 3 and 6
+    if ((this.level >= 3 && this.level < 4) || this.level === 6) {
+      if (platforms.platform_three && platforms.platform_three.finishLine) {
+        const finishLine = platforms.platform_three.finishLine;
+        if (finishLine.ready) {
+          const meshToRegister = finishLine.collisionModel || finishLine.model;
+          if (meshToRegister && !this.hasCollider(meshToRegister)) {
+            const collider = this.add(meshToRegister, 'box');
+            if (collider) {
+              console.log(`🏁 Registered Level 3 finish line collider`);
+            }
+          }
+        }
+      }
+    }
+    
+    // Register Level 4 finish line (platform_four)
+    if (this.level === 4 && platforms.platform_four && platforms.platform_four.finishLine) {
+      const finishLine = platforms.platform_four.finishLine;
       if (finishLine.ready) {
         const meshToRegister = finishLine.collisionModel || finishLine.model;
         if (meshToRegister && !this.hasCollider(meshToRegister)) {
           const collider = this.add(meshToRegister, 'box');
           if (collider) {
-            console.log(`🏁 Registered Level 3 finish line collider`);
+            console.log(`🏁 Registered Level 4 finish line collider`);
+          }
+        }
+      }
+    }
+    
+    // Register Level 5 finish line (platform_five)
+    if (this.level === 5 && platforms.platform_five && platforms.platform_five.finishLine) {
+      const finishLine = platforms.platform_five.finishLine;
+      if (finishLine.ready) {
+        const meshToRegister = finishLine.collisionModel || finishLine.model;
+        if (meshToRegister && !this.hasCollider(meshToRegister)) {
+          const collider = this.add(meshToRegister, 'box');
+          if (collider) {
+            console.log(`🏁 Registered Level 5 finish line collider`);
+          }
+        }
+      }
+    }
+    
+    // Register Level 6 finish line (platform_six)
+    if (this.level === 6 && platforms.platform_six && platforms.platform_six.finishLine) {
+      const finishLine = platforms.platform_six.finishLine;
+      if (finishLine.ready) {
+        const meshToRegister = finishLine.collisionModel || finishLine.model;
+        if (meshToRegister && !this.hasCollider(meshToRegister)) {
+          const collider = this.add(meshToRegister, 'box');
+          if (collider) {
+            console.log(`🏁 Registered Level 6 finish line collider`);
           }
         }
       }
@@ -592,23 +720,42 @@ export class CollisionManager {
 
   /**
    * Sync dynamic obstacles - called every frame to keep collisions up to date
-   * @param {Object} platforms - Object containing structure, platform_two, platform_three
+   * @param {Object} platforms - Object containing structure, platform_two, platform_three, platform_four, platform_five, platform_six
    */
   syncDynamicObstacles(platforms) {
-    // Sync Level 2 flying cubes
-    if (this.level >= 2 && platforms.platform_two?.flyingCubesSpawner) {
-      this.syncFlyingCubes(platforms.platform_two.flyingCubesSpawner);
+    // Sync Level 2 flying cubes (also used in level 6)
+    if ((this.level >= 2 && this.level < 4) || this.level === 6) {
+      if (platforms.platform_two?.flyingCubesSpawner) {
+        this.syncFlyingCubes(platforms.platform_two.flyingCubesSpawner);
+      }
     }
 
-    // Sync Level 3 flying cubes and laser barriers
-    if (this.level >= 3 && platforms.platform_three) {
-      if (platforms.platform_three.flyingCubesSpawner) {
-        this.syncFlyingCubes(platforms.platform_three.flyingCubesSpawner);
+    // Sync Level 3 flying cubes and laser barriers (also used in level 6)
+    if ((this.level >= 3 && this.level < 4) || this.level === 6) {
+      if (platforms.platform_three) {
+        if (platforms.platform_three.flyingCubesSpawner) {
+          this.syncFlyingCubes(platforms.platform_three.flyingCubesSpawner);
+        }
+        
+        if (platforms.platform_three.laserBarrierSpawner) {
+          this.syncLaserBarriers(platforms.platform_three.laserBarrierSpawner);
+        }
       }
-      
-      if (platforms.platform_three.laserBarrierSpawner) {
-        this.syncLaserBarriers(platforms.platform_three.laserBarrierSpawner);
-      }
+    }
+    
+    // Sync Level 4 flying cubes
+    if (this.level === 4 && platforms.platform_four?.flyingCubesSpawner) {
+      this.syncFlyingCubes(platforms.platform_four.flyingCubesSpawner);
+    }
+    
+    // Sync Level 5 flying cubes
+    if (this.level === 5 && platforms.platform_five?.flyingCubesSpawner) {
+      this.syncFlyingCubes(platforms.platform_five.flyingCubesSpawner);
+    }
+    
+    // Sync Level 6 flying cubes (platform_six)
+    if (this.level === 6 && platforms.platform_six?.flyingCubesSpawner) {
+      this.syncFlyingCubes(platforms.platform_six.flyingCubesSpawner);
     }
   }
 

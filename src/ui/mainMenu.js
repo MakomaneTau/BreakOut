@@ -62,7 +62,10 @@ export class MainMenu {
           <button class="level-btn active" data-level="1">Level 1</button>
           <button class="level-btn" data-level="2">Level 2</button>
           <button class="level-btn" data-level="3">Level 3</button>
-          <button class="level-btn" data-level="4">Play Mode</button>
+          <button class="level-btn" data-level="4">Level 4</button>
+          <button class="level-btn" data-level="5">Level 5</button>
+          <button class="level-btn" data-level="6">Level 6</button>
+          <button class="level-btn" data-level="7">Play Mode</button>
         </div>
         <p class="prompt">Press Any Key to Start</p>
         <p class="hint">(Press H for Help)</p>
