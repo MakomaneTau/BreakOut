@@ -565,7 +565,15 @@ class Eve {
       console.log(`Player reset to fallback position: (${startX}, 1, ${startZ})`);
     }
     
-    // Update collider if it exists
+    // Update colliderMesh position to match model position (CRITICAL - prevents stuck collisions)
+    if (this.colliderMesh) {
+      this.colliderMesh.position.x = this.model.position.x;
+      this.colliderMesh.position.y = this.model.position.y + (this.colliderMesh.geometry.parameters.height / 2);
+      this.colliderMesh.position.z = this.model.position.z;
+      this.colliderMesh.rotation.copy(this.model.rotation);
+    }
+    
+    // Update collider if it exists (must be after colliderMesh position update)
     if (this.collider && typeof this.collider.update === 'function') {
       this.collider.update();
     }

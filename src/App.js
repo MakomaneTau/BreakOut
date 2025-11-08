@@ -684,16 +684,13 @@ class App {
             // Re-enable character controls (may have been disabled during win sequence)
             this.world.eve.controlsDisabled = false;
             
-            // Restore movement properties that may have been modified during win sequence
-            if (this.world.eve.runSpeed === 0) {
-                this.world.eve.runSpeed = 5; // Default run speed
-            }
-            if (this.world.eve.jumpSpeed === 0) {
-                this.world.eve.jumpSpeed = 12; // Default jump speed
-            }
-            if (this.world.eve.gravity === 0) {
-                this.world.eve.gravity = 30; // Default gravity
-            }
+            // Always reset movement properties to defaults (ensures complete reset)
+            this.world.eve.runSpeed = 5; // Default run speed
+            this.world.eve.jumpSpeed = 12; // Default jump speed
+            this.world.eve.gravity = 30; // Default gravity
+            this.world.eve.rollDistance = 1.2; // Default roll distance
+            this.world.eve.jumpDistance = 1.67; // Default jump distance
+            this.world.eve.jumpDistanceBoost = 2.0; // Default jump boost
             
             // Immediately re-enable player (will be refined by resetToStartPosition)
             this.world.eve.ready = true;
@@ -713,14 +710,38 @@ class App {
                     this.world.eve.ready = true;
                     this.world.eve.controlsDisabled = false;
                     
-                    // Double-check movement properties are restored
-                    if (this.world.eve.runSpeed === 0) this.world.eve.runSpeed = 5;
-                    if (this.world.eve.jumpSpeed === 0) this.world.eve.jumpSpeed = 12;
-                    if (this.world.eve.gravity === 0) this.world.eve.gravity = 30;
+                    // Ensure all movement properties are at defaults
+                    this.world.eve.runSpeed = 5;
+                    this.world.eve.jumpSpeed = 12;
+                    this.world.eve.gravity = 30;
+                    this.world.eve.rollDistance = 1.2;
+                    this.world.eve.jumpDistance = 1.67;
+                    this.world.eve.jumpDistanceBoost = 2.0;
                     
                     console.log('✅ Player controls fully restored after restart');
                 }
             }, 200);
+        }
+
+        // Reset camera shake
+        if (this.cameraShake) {
+            this.cameraShake.reset();
+        }
+
+        // Reset obstacles for Level 1 (spinning blades rotation)
+        if (this.level >= 1 && this.world?.structure?.platform) {
+            const platform = this.world.structure.platform;
+            // Reset spinning blades to their initial rotation
+            if (platform.spinningBlades && Array.isArray(platform.spinningBlades)) {
+                platform.spinningBlades.forEach(blade => {
+                    if (blade.model && blade._rotationY !== undefined) {
+                        blade.model.rotation.y = blade._rotationY;
+                        blade.model.rotation.x = Math.PI / 2; // Reset X rotation too
+                    }
+                });
+            }
+            // Laser barriers reset automatically (they use Date.now() for animation)
+            // Concrete blocks are static, no reset needed
         }
 
         // Reset obstacles for Level 2
@@ -739,6 +760,8 @@ class App {
                 this.world.platform_three.laserBarrierSpawner.reset();
             }
         }
+
+        console.log('✅ Game fully reset - all systems restored');
     }
 
     /**
