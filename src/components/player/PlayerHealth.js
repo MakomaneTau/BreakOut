@@ -54,14 +54,34 @@ export class PlayerHealth {
    * @returns {boolean} - Returns true if player is still alive
    */
   takeDamage(amount, damageType = DamageType.ENVIRONMENTAL) {
+    console.log(`[DEBUG HEALTH] takeDamage called:`, {
+      amount: amount,
+      damageType: damageType,
+      currentHealth: this.currentHealth,
+      maxHealth: this.maxHealth,
+      isInvulnerable: this.isInvulnerable,
+      invulnerabilityTimer: this.invulnerabilityTimer,
+      isAlive: this.isAlive
+    });
+    
     // Check invulnerability
     if (this.isInvulnerable || !this.isAlive) {
+      console.log(`[DEBUG HEALTH] Damage blocked - invulnerable: ${this.isInvulnerable} (timer: ${this.invulnerabilityTimer.toFixed(3)}s) or not alive: ${!this.isAlive}`);
       return this.isAlive;
     }
     
     // Apply damage
+    const healthBefore = this.currentHealth;
     const actualDamage = Math.min(amount, this.currentHealth);
     this.currentHealth = Math.max(0, this.currentHealth - amount);
+    
+    console.log(`[DEBUG HEALTH] Damage applied:`, {
+      healthBefore: healthBefore,
+      healthAfter: this.currentHealth,
+      amount: amount,
+      actualDamage: actualDamage,
+      damageType: damageType
+    });
     
     // Update statistics
     this.stats.totalDamageTaken += actualDamage;
@@ -69,6 +89,7 @@ export class PlayerHealth {
     
     // Grant brief invulnerability to prevent rapid consecutive damage
     this.setInvulnerable(HealthConfig.DAMAGE_COOLDOWN_DURATION);
+    console.log(`[DEBUG HEALTH] Invulnerability set for: ${this.invulnerabilityTimer.toFixed(3)} seconds`);
     
     // Trigger damage callback
     if (this.onDamage) {
@@ -77,6 +98,7 @@ export class PlayerHealth {
     
     // Check if health depleted
     if (this.currentHealth <= 0) {
+      console.log(`[DEBUG HEALTH] Health depleted - triggering death`);
       this.die();
       return false;
     }

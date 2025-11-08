@@ -101,6 +101,11 @@ export class CollisionManager {
             console.log(`[${platformName}] ▶ Already registered concrete block collider: ${block._name}`);
             return;
           }
+          // Set userData.type for collision detection
+          if (!block.model.userData.type) {
+            block.model.userData.type = 'concrete_block';
+            console.log(`[${platformName}] Set userData.type = "concrete_block" on model: ${block._name}`);
+          }
           const collider = this.add(block.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
@@ -122,6 +127,11 @@ export class CollisionManager {
             console.log(`[${platformName}] ▶ Already registered spinning blade collider: ${blade._name}`);
             return;
           }
+          // Set userData.type for collision detection
+          if (!blade.model.userData.type) {
+            blade.model.userData.type = 'spinning_blade';
+            console.log(`[${platformName}] Set userData.type = "spinning_blade" on model: ${blade._name}`);
+          }
           const collider = this.add(blade.model, 'box');
           if (collider) {
             registeredColliders.push(collider);
@@ -142,6 +152,11 @@ export class CollisionManager {
           if (this.hasCollider(barrier.model)) {
             console.log(`[${platformName}] ▶ Already registered laser barrier collider: ${barrier._name}`);
             return;
+          }
+          // Set userData.type for collision detection
+          if (!barrier.model.userData.type) {
+            barrier.model.userData.type = 'laser';
+            console.log(`[${platformName}] Set userData.type = "laser" on model: ${barrier._name}`);
           }
           const collider = this.add(barrier.model, 'box');
           if (collider) {
@@ -289,9 +304,18 @@ export class CollisionManager {
     
     let expected = 0;
     
-    // Level 1 (always present)
-    if (platforms.structure && platforms.structure.platform) {
+    // Level 1 obstacles - only count if level is 1, or if Level 1 platform has ready obstacles
+    if (this.level === 1 && platforms.structure && platforms.structure.platform) {
       expected += this.getExpectedObstacleCount(platforms.structure.platform);
+    } else if (this.level > 1 && platforms.structure && platforms.structure.platform) {
+      // On higher levels, only count Level 1 obstacles if they're actually ready
+      const level1Platform = platforms.structure.platform;
+      const hasReadyObstacles = (level1Platform.concreteBlocks && level1Platform.concreteBlocks.some(b => b.ready)) ||
+                                (level1Platform.spinningBlades && level1Platform.spinningBlades.some(b => b.ready)) ||
+                                (level1Platform.laserBarriers && level1Platform.laserBarriers.some(b => b.ready));
+      if (hasReadyObstacles) {
+        expected += this.getExpectedObstacleCount(level1Platform);
+      }
     }
     
     // Level 2 obstacles
@@ -352,10 +376,24 @@ export class CollisionManager {
       console.log(`🔁 Continuing obstacle registration for level ${this.level}...`);
     }
 
-    // Always register Level 1 obstacles (structure.platform)
-    if (platforms.structure && platforms.structure.platform) {
+    // Register Level 1 obstacles only if level is 1 (or if Level 1 platform is actually loaded/visible)
+    // On higher levels, Level 1 obstacles may not be loaded, so skip them to avoid blocking registration
+    if (this.level === 1 && platforms.structure && platforms.structure.platform) {
       console.log('📍 Registering Level 1 obstacles...');
       this.registerPlatformObstacles(platforms.structure.platform, 'Level 1');
+    } else if (this.level > 1 && platforms.structure && platforms.structure.platform) {
+      // On higher levels, only register Level 1 obstacles if they're actually ready
+      // This prevents blocking registration waiting for obstacles that may never load
+      const level1Platform = platforms.structure.platform;
+      const hasReadyObstacles = (level1Platform.concreteBlocks && level1Platform.concreteBlocks.some(b => b.ready)) ||
+                                (level1Platform.spinningBlades && level1Platform.spinningBlades.some(b => b.ready)) ||
+                                (level1Platform.laserBarriers && level1Platform.laserBarriers.some(b => b.ready));
+      if (hasReadyObstacles) {
+        console.log('📍 Registering Level 1 obstacles (some are ready)...');
+        this.registerPlatformObstacles(level1Platform, 'Level 1');
+      } else {
+        console.log('📍 Skipping Level 1 obstacles - not ready/loaded on current level');
+      }
     }
 
     // Register Level 2 obstacles if level >= 2
@@ -666,3 +704,252 @@ export class CollisionManager {
     console.log('All colliders cleared');
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// import { Collider } from './Collider.js';
+// import * as THREE from '../../../public/libs/three137/three.module.js';
+// import { HealthConfig, DamageType } from '../../config/healthConfig.js';
+
+// export class CollisionManager {
+//   constructor() {
+//     this.colliders = [];
+//   }
+
+//   // Add a new collider
+//   add(mesh, type = 'box') {
+//     const collider = new Collider(mesh, type);
+//     this.colliders.push(collider);
+//     return collider;
+//   }
+
+//   // Remove a collider
+//   remove(collider) {
+//     this.colliders = this.colliders.filter(c => c !== collider);
+//   }
+
+//   // Check if a collider intersects any other collider
+//   findCollisionFor(collider) {
+//     for (const other of this.colliders) {
+//       if (other === collider) continue; // skip self
+//       if (collider.intersects(other)) {
+//         return other;
+//       }
+//     }
+//     return null;
+//   }
+
+//   // Register all wall meshes from a model as colliders
+//   registerWallsFromModel(model) {
+//     const wallColliders = [];
+    
+//     model.traverse((child) => {
+//       if (child.isMesh && this.isWallMesh(child)) {
+//         const collider = this.add(child, 'box');
+//         wallColliders.push(collider);
+//         console.log(`Registered wall collider: ${child.name || 'unnamed mesh'}`);
+//       }
+//     });
+    
+//     return wallColliders;
+//   }
+
+//   // Register all obstacles from a platform
+//   registerPlatformObstacles(platform) {
+//     console.log('[DEBUG] Starting obstacle registration...');
+//     console.log(`[DEBUG] Concrete blocks: ${platform.concreteBlocks ? platform.concreteBlocks.length : 0}`);
+//     console.log(`[DEBUG] Spinning blades: ${platform.spinningBlades ? platform.spinningBlades.length : 0}`);
+//     console.log(`[DEBUG] Laser barriers: ${platform.laserBarriers ? platform.laserBarriers.length : 0}`);
+
+//     const registeredColliders = [];
+//     let registeredCount = 0;
+
+//     // Register concrete blocks
+//     if (platform.concreteBlocks) {
+//       platform.concreteBlocks.forEach((block, index) => {
+//         if (block.ready && block.model) {
+//           // Set userData.type for collision detection
+//           if (!block.model.userData.type) {
+//             block.model.userData.type = 'concrete_block';
+//             console.log(`[DEBUG CONCRETE] Set userData.type = "concrete_block" on model: ${block._name}`);
+//           }
+//           const collider = this.add(block.model, 'box');
+//           if (collider) {
+//             registeredColliders.push(collider);
+//             registeredCount++;
+//             const expectedCount = this.getExpectedObstacleCount(platform);
+//             console.log(`[DEBUG CONCRETE] Registered concrete block collider:`, {
+//               name: block._name,
+//               meshName: block.model.name || 'unnamed',
+//               userData: block.model.userData,
+//               position: block.model.position,
+//               registeredCount: `${registeredCount}/${expectedCount}`
+//             });
+//           }
+//         }
+//       });
+//     }
+
+//     // Register spinning blades
+//     if (platform.spinningBlades) {
+//       platform.spinningBlades.forEach(blade => {
+//         if (blade.ready && blade.model) {
+//           // Set userData.type for collision detection
+//           if (!blade.model.userData.type) {
+//             blade.model.userData.type = 'spinning_blade';
+//             console.log(`[DEBUG BLADE] Set userData.type = "spinning_blade" on model: ${blade._name}`);
+//           }
+//           const collider = this.add(blade.model, 'box');
+//           if (collider) {
+//             registeredColliders.push(collider);
+//             registeredCount++;
+//             const expectedCount = this.getExpectedObstacleCount(platform);
+//             console.log(`[DEBUG BLADE] Registered spinning blade collider:`, {
+//               name: blade._name,
+//               meshName: blade.model.name || 'unnamed',
+//               userData: blade.model.userData,
+//               position: blade.model.position,
+//               registeredCount: `${registeredCount}/${expectedCount}`
+//             });
+//           }
+//         }
+//       });
+//     }
+
+//     // Register laser barriers
+//     if (platform.laserBarriers) {
+//       platform.laserBarriers.forEach(barrier => {
+//         if (barrier.ready && barrier.model) {
+//           // Set userData.type for collision detection
+//           if (!barrier.model.userData.type) {
+//             barrier.model.userData.type = 'laser';
+//             console.log(`[DEBUG LASER] Set userData.type = "laser" on model: ${barrier._name}`);
+//           }
+//           const collider = this.add(barrier.model, 'box');
+//           if (collider) {
+//             registeredColliders.push(collider);
+//             registeredCount++;
+//             const expectedCount = this.getExpectedObstacleCount(platform);
+//             console.log(`[DEBUG LASER] Registered laser barrier collider:`, {
+//               name: barrier._name,
+//               meshName: barrier.model.name || 'unnamed',
+//               userData: barrier.model.userData,
+//               position: barrier.model.position,
+//               registeredCount: `${registeredCount}/${expectedCount}`
+//             });
+//           }
+//         }
+//       });
+//     }
+
+//     // If not all obstacles are ready, try again later
+//     const expectedCount = this.getExpectedObstacleCount(platform);
+//     if (registeredCount < expectedCount) {
+//       console.log('Some obstacles not ready yet, retrying in 500ms...');
+//       setTimeout(() => {
+//         this.registerPlatformObstacles(platform);
+//       }, 500);
+//     }
+
+//     return registeredColliders;
+//   }
+
+//   // Get expected number of obstacles for a platform
+//   getExpectedObstacleCount(platform) {
+//     let expected = 0;
+//     if (platform.concreteBlocks) expected += platform.concreteBlocks.length;
+//     if (platform.spinningBlades) expected += platform.spinningBlades.length;
+//     if (platform.laserBarriers) expected += platform.laserBarriers.length;
+//     return expected;
+//   }
+
+//   // Check if a mesh should be treated as a wall
+//   isWallMesh(mesh) {
+//     // Check if mesh name suggests it's a wall
+//     const name = mesh.name.toLowerCase();
+//     if (name.includes('wall') || name.includes('barrier') || name.includes('fence')) {
+//       return true;
+//     }
+
+//     // Check geometry characteristics that suggest a wall
+//     if (mesh.geometry) {
+//       const box = new THREE.Box3().setFromObject(mesh);
+//       const size = box.getSize(new THREE.Vector3());
+      
+//       // If the mesh is tall and thin, it's likely a wall
+//       const aspectRatio = size.y / Math.max(size.x, size.z);
+//       if (aspectRatio > 2 && size.y > 2) {
+//         return true;
+//       }
+//     }
+
+//     return false;
+//   }
+
+//   // Get all colliders of a specific type
+//   getCollidersByType(type) {
+//     return this.colliders.filter(collider => collider.type === type);
+//   }
+
+//   // Get all colliders
+//   getAllColliders() {
+//     return this.colliders;
+//   }
+
+//   // Get colliders count
+//   getColliderCount() {
+//     return this.colliders.length;
+//   }
+
+//   // Clear all colliders
+//   clearAll() {
+//     this.colliders = [];
+//   }
+
+//   /**
+//    * Check collision and apply damage if player hits an obstacle
+//    */
+//   checkPlayerCollisions(playerCollider, player) {
+//     if (!playerCollider || !player) return null;
+
+//     for (const collider of this.colliders) {
+//       if (collider === playerCollider) continue;
+
+//       if (playerCollider.intersects(collider)) {
+//         // Apply damage based on obstacle type
+//         const obstacle = collider.mesh.userData;
+//         const obstacleType = obstacle?.type;
+//         const meshName = collider.mesh.name || 'unnamed';
+        
+//         if (obstacle?.type === 'concrete_block') {
+//           player.takeDamage(HealthConfig.OBSTACLE_DAMAGE, DamageType.OBSTACLE);
+//         } else if (obstacle?.type === 'spinning_blade') {
+//           player.takeDamage(HealthConfig.TRAP_DAMAGE, DamageType.TRAP);
+//         } else if (obstacle?.type === 'laser') {
+//           player.takeDamage(HealthConfig.TRAP_DAMAGE, DamageType.TRAP);
+//         }
+//         // Note: finish_line is handled in Eve.checkDamageCollisions() to avoid damage
+        
+//         return collider;
+//       }
+//     }
+
+//     return null;
+//   }
+// }

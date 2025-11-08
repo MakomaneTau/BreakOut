@@ -129,8 +129,54 @@ class Eve {
         }
 
         // Collision box / collider
+        // Create a proper bounding box with height for collision detection
+        // The model's bounding box might be flat, so we'll create a custom collision box
         if (this.collisionManager) {
-          this.collider = this.collisionManager.add(this.model, 'box');
+          // Calculate proper bounding box from the model
+          const modelBox = new THREE.Box3().setFromObject(this.model);
+          const modelSize = modelBox.getSize(new THREE.Vector3());
+          const modelCenter = modelBox.getCenter(new THREE.Vector3());
+          
+          // If the bounding box has no height, create a proper one
+          // Character should be roughly 1.5-2 units tall
+          let colliderHeight = modelSize.y;
+          if (colliderHeight < 0.1) {
+            // Model bounding box is flat, use a reasonable character height
+            colliderHeight = 1.8; // Approximate character height
+            console.warn('[DEBUG EVE] Model bounding box has no height, using default:', colliderHeight);
+          }
+          
+          // Create a collision box geometry that represents the character
+          // Use the model's width/depth but ensure proper height
+          const colliderWidth = Math.max(modelSize.x, 0.5);
+          const colliderDepth = Math.max(modelSize.z, 0.5);
+          
+          // Create a helper box mesh for collision (invisible)
+          const colliderGeometry = new THREE.BoxGeometry(colliderWidth, colliderHeight, colliderDepth);
+          const colliderMaterial = new THREE.MeshBasicMaterial({ visible: false });
+          this.colliderMesh = new THREE.Mesh(colliderGeometry, colliderMaterial);
+          
+          // Position the collider mesh at the model's center, but adjust Y to be at character's center
+          this.colliderMesh.position.copy(this.model.position);
+          this.colliderMesh.position.y = this.model.position.y + (colliderHeight / 2);
+          this.colliderMesh.rotation.copy(this.model.rotation);
+          
+          // Add to scene (invisible, just for collision)
+          this.scene.add(this.colliderMesh);
+          
+          // Create collider from the helper mesh
+          this.collider = this.collisionManager.add(this.colliderMesh, 'box');
+          
+          console.log('[DEBUG EVE] Collider created:', {
+            hasCollider: !!this.collider,
+            hasModel: !!this.model,
+            colliderSize: `(${colliderWidth.toFixed(2)}, ${colliderHeight.toFixed(2)}, ${colliderDepth.toFixed(2)})`,
+            modelSize: `(${modelSize.x.toFixed(2)}, ${modelSize.y.toFixed(2)}, ${modelSize.z.toFixed(2)})`,
+            collisionManagerLevel: this.collisionManager?.level,
+            totalColliders: this.collisionManager?.colliders?.length
+          });
+        } else {
+          console.warn('[DEBUG EVE] ⚠️ No collisionManager available when creating collider!');
         }
 
         // Setup mixer & strip root motion
@@ -373,8 +419,14 @@ class Eve {
     if (!this.collider || !this.collisionManager) return false;
 
     // Temporarily move player collider to test position
+    // Account for collider mesh height offset if using custom collider mesh
     const originalPos = this.collider.mesh.position.clone();
-    this.collider.mesh.position.copy(testPosition);
+    const testColliderPos = testPosition.clone();
+    if (this.colliderMesh) {
+      // Adjust Y position to account for collider mesh center offset
+      testColliderPos.y = testPosition.y + (this.colliderMesh.geometry.parameters.height / 2);
+    }
+    this.collider.mesh.position.copy(testColliderPos);
     if (typeof this.collider.update === 'function') this.collider.update();
 
     // Check for collision at test position
@@ -568,6 +620,7 @@ class Eve {
 
   handleCollisionDamage(collision) {
     if (!this.health || !this.health.isAlive) return;
+    if (!collision || !collision.mesh) return;
 
     const mesh = collision.mesh;
     // Get type from mesh or traverse up parent hierarchy to find it
@@ -576,6 +629,19 @@ class Eve {
     // Debug logging
     if (!obstacleType || obstacleType === 'unknown') {
       console.warn(`⚠️ Collision detected but obstacle type unknown. Mesh name: ${mesh.name}, userData:`, mesh.userData);
+      console.warn(`   Mesh type: ${mesh.constructor.name}, isMesh: ${mesh.isMesh}, isGroup: ${mesh.isGroup}`);
+      // Try to find type in parent hierarchy
+      let current = mesh.parent;
+      let depth = 0;
+      while (current && depth < 5) {
+        if (current.userData && current.userData.type) {
+          console.warn(`   Found type in parent (depth ${depth}): ${current.userData.type}`);
+        }
+        current = current.parent;
+        depth++;
+      }
+    } else {
+      console.log(`💥 Applying damage from ${obstacleType}`);
     }
 
     let damage = HealthConfig.OBSTACLE_DAMAGE;
@@ -607,6 +673,9 @@ class Eve {
           damage = HealthConfig.TRAP_DAMAGE;
           damageType = DamageType.TRAP;
         } else if (name.includes('cube')) {
+          damage = HealthConfig.OBSTACLE_DAMAGE;
+          damageType = DamageType.OBSTACLE;
+        } else if (name.includes('concrete') || name.includes('block')) {
           damage = HealthConfig.OBSTACLE_DAMAGE;
           damageType = DamageType.OBSTACLE;
         }
@@ -718,6 +787,19 @@ class Eve {
         this.onGround = true;
         this.isJumping = false;
       }
+      
+      // Update collider mesh position to match model
+      if (this.colliderMesh) {
+        this.colliderMesh.position.x = this.model.position.x;
+        this.colliderMesh.position.y = this.model.position.y + (this.colliderMesh.geometry.parameters.height / 2);
+        this.colliderMesh.position.z = this.model.position.z;
+        this.colliderMesh.rotation.copy(this.model.rotation);
+      }
+      
+      // Update collider after vertical movement (jumping/falling)
+      if (this.collider && typeof this.collider.update === 'function') {
+        this.collider.update();
+      }
     }
 
     let desiredAction = 'idle';
@@ -729,6 +811,12 @@ class Eve {
       const testPos = this.model.position.clone().add(deltaMove);
       if (!this.checkCollisionAtPosition(testPos)) {
         this.model.position.add(deltaMove);
+        // Update collider mesh position
+        if (this.colliderMesh) {
+          this.colliderMesh.position.x = this.model.position.x;
+          this.colliderMesh.position.y = this.model.position.y + (this.colliderMesh.geometry.parameters.height / 2);
+          this.colliderMesh.position.z = this.model.position.z;
+        }
         if (this.collider && typeof this.collider.update === 'function') this.collider.update();
       }
       this.rollTimer += delta;
@@ -750,6 +838,12 @@ class Eve {
         const testPos = this.model.position.clone().add(doubledMove);
         if (!this.checkCollisionAtPosition(testPos)) {
           this.model.position.add(doubledMove);
+          // Update collider mesh position
+          if (this.colliderMesh) {
+            this.colliderMesh.position.x = this.model.position.x;
+            this.colliderMesh.position.y = this.model.position.y + (this.colliderMesh.geometry.parameters.height / 2);
+            this.colliderMesh.position.z = this.model.position.z;
+          }
           if (this.collider && typeof this.collider.update === 'function') this.collider.update();
         }
         this.jumpTimer += delta;
@@ -809,6 +903,12 @@ class Eve {
         const testPos = this.model.position.clone().add(movementVector);
         if (!this.checkCollisionAtPosition(testPos)) {
           this.model.position.add(movementVector);
+          // Update collider mesh position
+          if (this.colliderMesh) {
+            this.colliderMesh.position.x = this.model.position.x;
+            this.colliderMesh.position.y = this.model.position.y + (this.colliderMesh.geometry.parameters.height / 2);
+            this.colliderMesh.position.z = this.model.position.z;
+          }
           // Update collider after movement to ensure collision detection works
           if (this.collider && typeof this.collider.update === 'function') {
             this.collider.update();
@@ -819,6 +919,10 @@ class Eve {
         if (groundType === 'stairs' && this.keyStates['w']) {
           desiredAction = this.findActionNameMatch('upstairs') || 'UpStairs';
           this.model.position.y += (this.runSpeed * 0.6) * delta;
+          // Update collider mesh position
+          if (this.colliderMesh) {
+            this.colliderMesh.position.y = this.model.position.y + (this.colliderMesh.geometry.parameters.height / 2);
+          }
           // Update collider after vertical movement on stairs
           if (this.collider && typeof this.collider.update === 'function') {
             this.collider.update();
@@ -844,6 +948,12 @@ class Eve {
         }
       } else {
         desiredAction = this.findActionNameMatch('idle') || 'idle';
+        // Update collider mesh position even when idle
+        if (this.colliderMesh) {
+          this.colliderMesh.position.x = this.model.position.x;
+          this.colliderMesh.position.y = this.model.position.y + (this.colliderMesh.geometry.parameters.height / 2);
+          this.colliderMesh.position.z = this.model.position.z;
+        }
         // Even when idle, ensure collider is updated so standing collisions are detected
         if (this.collider && typeof this.collider.update === 'function') {
           this.collider.update();
@@ -872,14 +982,36 @@ class Eve {
     this.collider.update();
     const collision = this.collisionManager.findCollisionFor(this.collider);
     if (collision) {
-      // Check for finish line collision - prioritize this over damage
-      if (collision.mesh && collision.mesh.userData && collision.mesh.userData.type === 'finish_line') {
+      // Check for finish line collision - prioritize this over damage (always check, even if invulnerable)
+      const finishLineType = collision.mesh?.userData?.type === 'finish_line' || 
+                            this.getObstacleTypeFromHierarchy(collision.mesh) === 'finish_line';
+      if (finishLineType) {
         console.log('🏁 Finish line collision detected!');
         // Connect helicopter before triggering win animation
         this.connectHelicopterForFinishLine();
         this.triggerWinAnimation();
         return;
       }
+      
+      // For damage collisions, skip if invulnerable
+      if (this.health.isInvulnerable) {
+        return;
+      }
+      
+      // Check if player is jumping and might be clearing the obstacle
+      // If player's collision box bottom is above obstacle's top, they're jumping over it
+      if (this.isJumping && this.collider.box && collision.box) {
+        const playerBox = this.collider.box;
+        const obstacleBox = collision.box;
+        const playerBottom = playerBox.min.y;
+        const obstacleTop = obstacleBox.max.y;
+        
+        // If player's bottom is above obstacle's top, they're clearing it - no damage
+        if (playerBottom > obstacleTop) {
+          return;
+        }
+      }
+      
       // Handle other collision types (damage)
       this.handleCollisionDamage(collision);
     }
